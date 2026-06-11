@@ -104,4 +104,272 @@ export default function App() {
     &lt;/main&gt;
   );
 }</code></pre>
-<div class="callout warning"><strong>When does this become a problem?</strong><p>When requirements add pagination, sorting, product details, retry behavior, and another page that needs the same product data. The component gains responsibilities, API logic is harder to reuse, and isolated tests become mo
+<div class="callout warning"><strong>When does this become a problem?</strong><p>When requirements add pagination, sorting, product details, retry behavior, and another page that needs the same product data. The component gains responsibilities, API logic is harder to reuse, and isolated tests become more awkward.</p></div>
+<p>Do not refactor only because a component has reached a certain line count. Look for responsibilities that change independently and separate them when doing so improves clarity.</p>
+</section>
+<section id="principles">
+<h2>4. The Core Principles of Scalable React Architecture</h2>
+<h3>4.1 Separation of concerns</h3><p>Each part of the application should have a clear responsibility. A page coordinates the screen; a UI component displays information; a hook shares stateful behavior; an API module communicates with the backend; and a utility handles a small operation.</p>
+<h3>4.2 Reusability</h3><p>Shared components help keep behavior consistent. But two components that look similar do not always need to be merged. If they serve different purposes or are likely to evolve differently, separate implementations may be easier to maintain.</p>
+<h3>4.3 High cohesion and low coupling</h3><p><strong>High cohesion</strong> means related code stays together. <strong>Low coupling</strong> means one part of the application does not depend unnecessarily on another part's internal details. A product feature, for example, should not need to know how authentication tokens are stored internally.</p>
+<h3>4.4 Explicit data flow</h3><p>Data should move through clear boundaries. A page obtains the data it needs, passes values to child components, and responds to user actions through explicit callbacks. Avoid hidden dependencies and excessive global state when local state or a function argument is enough.</p>
+</section>
+<section id="folders">
+<h2>5. Choosing a Folder Structure That Can Grow</h2>
+<p>A type-based structure is a reasonable starting point:</p>
+<pre><code>src/
+├── components/
+├── hooks/
+├── pages/
+├── services/
+├── types/
+└── utils/</code></pre>
+<p>As the application grows, each folder can fill with files from many unrelated features. Finding everything related to products might require searching through components, hooks, services, and types separately.</p>
+<p>For a medium-sized application, a <strong>feature-based structure with a small shared layer</strong> is often easier to navigate.</p>
+<pre><code>src/
+├── app/
+│   ├── App.tsx
+│   ├── router.tsx
+│   └── providers.tsx
+├── components/
+│   ├── ui/
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   └── Spinner.tsx
+│   └── layout/
+│       ├── AppLayout.tsx
+│       └── Sidebar.tsx
+├── features/
+│   ├── products/
+│   │   ├── api/productsApi.ts
+│   │   ├── components/
+│   │   │   ├── ProductList.tsx
+│   │   │   └── ProductCard.tsx
+│   │   ├── hooks/useProducts.ts
+│   │   ├── pages/ProductsPage.tsx
+│   │   ├── types/product.types.ts
+│   │   └── utils/filterProducts.ts
+│   └── users/
+│       ├── api/
+│       ├── components/
+│       ├── hooks/
+│       ├── pages/
+│       └── types/
+├── lib/http.ts
+├── hooks/
+├── utils/
+└── main.tsx</code></pre>
+<table><thead><tr><th>Location</th><th>Responsibility</th></tr></thead><tbody>
+<tr><td><code>app/</code></td><td>Application setup, routing, providers.</td></tr>
+<tr><td><code>components/ui/</code></td><td>Generic UI components shared across features.</td></tr>
+<tr><td><code>components/layout/</code></td><td>Shared layouts and navigation.</td></tr>
+<tr><td><code>features/products/</code></td><td>Product-specific UI, logic, API, and types.</td></tr>
+<tr><td><code>lib/</code></td><td>Shared infrastructure, such as an HTTP client.</td></tr>
+<tr><td><code>hooks/</code> and <code>utils/</code></td><td>Only genuinely shared hooks and utilities.</td></tr>
+</tbody></table>
+<div class="callout good"><strong>Practical rule</strong><p>Organize code around the business features developers work on, not only around the technical file types they create. Keep feature-specific code together and share functionality when it is genuinely common.</p></div>
+</section>
+<section id="build">
+<h2>6. Building the Application Step by Step</h2>
+<h3>Step 1: Define the data types</h3>
+<p>Create <code>features/products/types/product.types.ts</code>.</p>
+<pre><code>export type Product = {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+};</code></pre>
+<p>TypeScript helps catch mistakes during development and documents the shape of data used by components and API functions. But TypeScript types do not validate external JSON at runtime. Validate untrusted API data when appropriate.</p>
+<h3>Step 2: Move API communication into a module</h3>
+<p>Create <code>features/products/api/productsApi.ts</code>.</p>
+<pre><code>import type { Product } from "../types/product.types";
+
+export async function getProducts(
+  signal?: AbortSignal
+): Promise&lt;Product[]&gt; {
+  const response = await fetch("/api/products", { signal });
+
+  if (!response.ok) {
+    throw new Error("Unable to fetch products");
+  }
+
+  return (await response.json()) as Product[];
+}</code></pre>
+<p>The page no longer needs to know the details of the HTTP request. If the endpoint changes, there is one clear place to update it. The type assertion does not validate the server response; use runtime schema validation or a suitably typed API client if stronger guarantees are needed.</p>
+<h3>Step 3: Separate data-fetching behavior</h3>
+<p>For a small app, fetching with <code>useEffect</code> can be enough. When several components need the same query or you need caching, background refetching, retries, and request deduplication, a server-state library such as TanStack Query can reduce custom code.</p>
+<p>Install it if the project does not already use it:</p><pre><code>npm install @tanstack/react-query</code></pre>
+<p>Create <code>features/products/hooks/useProducts.ts</code>.</p>
+<pre><code>import { useQuery } from "@tanstack/react-query";
+import { getProducts } from "../api/productsApi";
+
+export function useProducts() {
+  return useQuery({
+    queryKey: ["products"],
+    queryFn: ({ signal }) =&gt; getProducts(signal),
+  });
+}</code></pre>
+<p>The query key identifies the cached data. If the result depends on a category or search parameter, include that parameter in the key. Configure a <code>QueryClientProvider</code> near the application root and create the <code>QueryClient</code> once rather than on every render.</p>
+<pre><code>import {
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
+
+export function Providers({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    &lt;QueryClientProvider client={queryClient}&gt;
+      {children}
+    &lt;/QueryClientProvider&gt;
+  );
+}</code></pre>
+<h3>Step 4: Extract a reusable UI component</h3>
+<p>Create <code>features/products/components/ProductCard.tsx</code>.</p>
+<pre><code>import type { Product } from "../types/product.types";
+
+type ProductCardProps = {
+  product: Product;
+  onSelect?: (product: Product) =&gt; void;
+};
+
+export function ProductCard({
+  product,
+  onSelect,
+}: ProductCardProps) {
+  return (
+    &lt;article className="product-card"&gt;
+      &lt;h2&gt;{product.name}&lt;/h2&gt;
+      &lt;p&gt;Category: {product.category}&lt;/p&gt;
+      &lt;p&gt;${product.price.toFixed(2)}&lt;/p&gt;
+      {onSelect &amp;&amp; (
+        &lt;button onClick={() =&gt; onSelect(product)}&gt;
+          View details
+        &lt;/button&gt;
+      )}
+    &lt;/article&gt;
+  );
+}</code></pre>
+<p>The component receives a product through props. It does not fetch data, know about routing, or maintain a second copy of the product list. The callback lets a parent respond to selection.</p>
+<h3>Step 5: Create the product list</h3>
+<p>Create <code>features/products/components/ProductList.tsx</code>.</p>
+<pre><code>import type { Product } from "../types/product.types";
+import { ProductCard } from "./ProductCard";
+
+type ProductListProps = {
+  products: Product[];
+  onSelectProduct: (product: Product) =&gt; void;
+};
+
+export function ProductList({
+  products,
+  onSelectProduct,
+}: ProductListProps) {
+  if (products.length === 0) {
+    return &lt;p&gt;No products found.&lt;/p&gt;;
+  }
+
+  return (
+    &lt;div className="product-grid"&gt;
+      {products.map((product) =&gt; (
+        &lt;ProductCard
+          key={product.id}
+          product={product}
+          onSelect={onSelectProduct}
+        /&gt;
+      ))}
+    &lt;/div&gt;
+  );
+}</code></pre>
+<p>The list has one responsibility: display a collection of products. It does not need to know where the data came from. The stable key helps React identify list items when the list changes.</p>
+<h3>Step 6: Extract filtering logic</h3>
+<p>Create <code>features/products/utils/filterProducts.ts</code>.</p>
+<pre><code>import type { Product } from "../types/product.types";
+
+export function filterProducts(
+  products: Product[],
+  search: string
+): Product[] {
+  const normalizedSearch = search.trim().toLowerCase();
+
+  if (!normalizedSearch) return products;
+
+  return products.filter((product) =&gt;
+    product.name.toLowerCase().includes(normalizedSearch)
+  );
+}</code></pre>
+<p>This is a pure function: the same inputs produce the same result, and the original array is not modified. We can test empty searches, mixed letter casing, and unmatched results without rendering React.</p>
+<h3>Step 7: Compose the page</h3>
+<p>Create <code>features/products/pages/ProductsPage.tsx</code>.</p>
+<pre><code>import { useMemo, useState } from "react";
+import { ProductList } from "../components/ProductList";
+import { useProducts } from "../hooks/useProducts";
+import { filterProducts } from "../utils/filterProducts";
+import type { Product } from "../types/product.types";
+
+export function ProductsPage() {
+  const [search, setSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] =
+    useState&lt;Product | null&gt;(null);
+
+  const {
+    data: products = [],
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useProducts();
+
+  const filteredProducts = useMemo(
+    () =&gt; filterProducts(products, search),
+    [products, search]
+  );
+
+  if (isPending) return &lt;p&gt;Loading products...&lt;/p&gt;;
+
+  if (isError) {
+    return (
+      &lt;section&gt;
+        &lt;p role="alert"&gt;
+          {error.message || "Unable to load products."}
+        &lt;/p&gt;
+        &lt;button onClick={() =&gt; refetch()}&gt;Try again&lt;/button&gt;
+      &lt;/section&gt;
+    );
+  }
+
+  return (
+    &lt;main&gt;
+      &lt;h1&gt;Products&lt;/h1&gt;
+      &lt;label htmlFor="product-search"&gt;Search products&lt;/label&gt;
+      &lt;input
+        id="product-search"
+        value={search}
+        onChange={(event) =&gt; setSearch(event.target.value)}
+        placeholder="Enter a product name"
+      /&gt;
+      &lt;ProductList
+        products={filteredProducts}
+        onSelectProduct={setSelectedProduct}
+      /&gt;
+      {selectedProduct &amp;&amp; (
+        &lt;aside aria-live="polite"&gt;
+          Selected: {selectedProduct.name}
+          &lt;button onClick={() =&gt; setSelectedProduct(null)}&gt;
+            Clear selection
+          &lt;/button&gt;
+        &lt;/aside&gt;
+      )}
+    &lt;/main&gt;
+  );
+}</code></pre>
+<p>The page coordinates the screen. It owns the search term and selected product, reads server data through the hook, and passes values to the list.</p>
+<div class="callout warning"><strong>Do we need <code>useMemo</code> here?</strong><p>Not always. For a small product list, calculating the filtered result directly may be simpler. Memoization is useful when the calculation is expensive or referential stability matters to downstream consumers. Avoid adding it by default.</p></div>
+</section>
+<section id="architecture">
+<h2>7. Understanding the Architecture</h2>
+<p>We now have several files, each with a clear responsibility. The important point is not the number of files; it is how responsibilities are 
