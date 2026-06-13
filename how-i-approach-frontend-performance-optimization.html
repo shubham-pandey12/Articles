@@ -39,4 +39,114 @@
 <tr><td>Main content appears late</td><td>LCP element, server response, render-blocking CSS/JS, image priority</td></tr><tr><td>Clicking feels delayed</td><td>Main-thread tasks, event handlers, React renders, expensive calculations</td></tr><tr><td>Content jumps</td><td>Image dimensions, fonts, injected banners, late content</td></tr><tr><td>Page downloads too much code</td><td>Bundle analysis, route splitting, duplicate dependencies</td></tr><tr><td>Scrolling is slow</td><td>DOM size, image decoding, layout/paint cost, virtualization</td></tr><tr><td>Data appears late</td><td>API latency, waterfalls, caching, duplicate requests</td></tr>
 </tbody></table><p>Do not optimize a metric just because it is available in a dashboard. Start with the problem users are experiencing.</p></section>
 <section id="baseline"><h2>3. Establish a Baseline Before Changing Code</h2>
-<p>A performance improvement is meaningful only when you can compare it with a baseline.</p><h3>Reproduce the proble
+<p>A performance improvement is meaningful only when you can compare it with a baseline.</p><h3>Reproduce the problem</h3><ul><li>Test on a mid-range mobile device or CPU throttling profile.</li><li>Use network throttling when investigating slow connections.</li><li>Test both a cold page load and a repeat visit.</li><li>Use realistic data volume.</li><li>Test the production build, not only the development server.</li><li>Repeat measurements; one run can be noisy.</li></ul>
+<p>In Chrome DevTools, start with Network to inspect request duration and size; Performance to inspect main-thread work; Lighthouse or Performance Insights for loading opportunities; Coverage for unused code; and React DevTools Profiler for component rendering.</p>
+<div class="callout note"><strong>Trace before guessing</strong><p>If the main thread spends 700 ms parsing and executing a large JavaScript bundle, changing a small CSS selector will not solve the main issue. Let the trace guide the next step.</p></div>
+<table><thead><tr><th>Measurement</th><th>Before</th><th>After</th></tr></thead><tbody><tr><td>LCP</td><td>Record actual value</td><td>Record actual value</td></tr><tr><td>INP or interaction duration</td><td>Record actual value</td><td>Record actual value</td></tr><tr><td>CLS</td><td>Record actual value</td><td>Record actual value</td></tr><tr><td>Initial JS transfer size</td><td>Record actual value</td><td>Record actual value</td></tr><tr><td>Product search duration</td><td>Record actual value</td><td>Record actual value</td></tr></tbody></table><p>Do not fill this table with invented numbers. Capture actual measurements and note the device, network, build, and test conditions.</p></section>
+<section id="critical"><h2>4. Understand the Browser's Critical Path</h2><p>When a user opens a page, the browser does more than download HTML.</p>
+<div class="diagram" role="img" aria-label="Simplified browser rendering path"><div class="flow"><span class="node">Request document</span><span class="arrow">→</span><span class="node">Discover resources</span><span class="arrow">→</span><span class="node">Parse and execute</span><span class="arrow">→</span><span class="node">Layout / Paint</span><span class="arrow">→</span><span class="node">Render</span></div><p class="muted">A simplified mental model. Resource fetching, parsing, and execution can overlap.</p></div>
+<p>For a slow initial render, ask whether the server response is delayed, the main image is discovered too late, critical CSS blocks rendering, too much JavaScript is required before content appears, hydration does excessive work, or a third-party script consumes the main thread.</p><p>Each answer points to a different fix. Performance work is most effective when it targets the actual critical path.</p></section>
+<section id="loading"><h2>5. Improve Loading Performance</h2>
+<h3>5.1 Optimize the LCP element first</h3><p>The LCP element may be a hero image, a large heading, or a prominent content block. Use DevTools to identify it rather than assuming it is the largest image.</p><p>If it is an image, serve an appropriately sized file, use a modern format where suitable, include intrinsic dimensions, make the URL discoverable early, and avoid lazy-loading the primary above-the-fold LCP image. Consider <code>fetchpriority="high"</code> for the genuinely critical image when measurements justify it.</p>
+<pre><code>&lt;img
+  src="/images/dashboard-hero.webp"
+  width="1200"
+  height="720"
+  alt="Analytics dashboard preview"
+  fetchpriority="high"
+/&gt;</code></pre>
+<p>Do not mark every image as high priority. For below-the-fold images, lazy loading can avoid unnecessary early downloads:</p>
+<pre><code>&lt;img
+  src="/images/customer-story.webp"
+  width="800"
+  height="500"
+  loading="lazy"
+  alt="Customer using the product"
+/&gt;</code></pre>
+<h3>5.2 Reduce render-blocking work</h3><p>Large CSS files, synchronous scripts, and expensive startup logic can delay the first useful render. Remove unused code, avoid loading page-specific code on every route, defer non-critical third-party scripts when safe, and keep startup work small. Do not blindly defer scripts that the page needs to function.</p>
+<h3>5.3 Split code by route and feature</h3><p>Route-level code splitting lets the browser download less JavaScript up front.</p>
+<pre><code>import { lazy, Suspense } from "react";
+
+const ReportsPage = lazy(
+  () =&gt; import("./features/reports/ReportsPage")
+);
+
+export function AppRoutes() {
+  return (
+    &lt;Suspense fallback={&lt;p&gt;Loading reports...&lt;/p&gt;}&gt;
+      &lt;ReportsPage /&gt;
+    &lt;/Suspense&gt;
+  );
+}</code></pre>
+<p>This simplified example lazy-loads one page. In a real router, use route-level boundaries and meaningful fallbacks. Too many tiny chunks can add request overhead; use a bundle analyzer and split along meaningful feature boundaries.</p></section>
+<section id="react"><h2>6. Improve React Rendering and Interaction Responsiveness</h2><p>A component rendering again is not automatically a performance bug. React is designed to render declaratively. The question is whether rendering work is expensive enough to affect users.</p>
+<h3>6.1 Measure before adding memoization</h3><p><code>memo</code> can skip child renders when props have not changed; <code>useMemo</code> can cache a calculation; <code>useCallback</code> can preserve a function reference. These tools have costs and do not automatically make an app faster. Start with the React Profiler.</p>
+<h3>6.2 Avoid recalculating expensive data on every render</h3><p>Filtering and sorting thousands of products on every keystroke can become expensive. For a small list, direct calculation is often readable and fast enough:</p>
+<pre><code>const visibleProducts = products
+  .filter((product) =&gt;
+    product.name.toLowerCase().includes(search.toLowerCase())
+  )
+  .sort((a, b) =&gt; a.name.localeCompare(b.name));</code></pre>
+<p>If profiling shows the calculation is expensive, memoize it:</p>
+<pre><code>const visibleProducts = useMemo(() =&gt; {
+  const normalizedSearch = search.trim().toLowerCase();
+
+  return products
+    .filter((product) =&gt;
+      product.name.toLowerCase().includes(normalizedSearch)
+    )
+    .sort((a, b) =&gt; a.name.localeCompare(b.name));
+}, [products, search]);</code></pre>
+<p><strong>Important:</strong> <code>sort()</code> mutates the array it is called on. This example is safe because <code>filter()</code> creates a new array first. Copy an existing state array before sorting it directly.</p>
+<h3>6.3 Keep props stable only when it matters</h3><p>A memoized child may render again if it receives a new object or callback reference each time. Memoization can help when stable references are needed, but adding it everywhere makes code harder to read.</p>
+<h3>6.4 Keep state close to where it is used</h3><p>If a page-level state update causes a large subtree to render, consider whether the state can live closer to the components that need it. Avoid global state for every temporary UI interaction, but do not split everything into tiny components without a reason.</p></section>
+<section id="search"><h2>7. Make Search and Filtering Feel Responsive</h2><p>Every keystroke can trigger filtering, rendering, and possibly a network request.</p><h3>Debounce network requests</h3><p>Debouncing waits until input has stopped changing for a short interval before running an operation. It is useful for reducing API calls while typing.</p>
+<pre><code>import { useEffect, useState } from "react";
+
+export function useDebouncedValue&lt;T&gt;(
+  value: T,
+  delay: number
+): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() =&gt; {
+    const timer = window.setTimeout(() =&gt; {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () =&gt; window.clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}</code></pre>
+<pre><code>const [search, setSearch] = useState("");
+const debouncedSearch = useDebouncedValue(search, 300);
+
+// Use debouncedSearch for a remote search request.</code></pre>
+<p>The cleanup cancels the previous timer when the value changes or the component unmounts. For requests, consider cancellation or ignoring stale responses so an older request cannot overwrite newer results. Local filtering does not always need debouncing; immediate feedback may feel better when the calculation is cheap.</p>
+<h3>Use deferred rendering for expensive local updates</h3><p>React's <code>useDeferredValue</code> can keep typing responsive when rendering results is expensive.</p>
+<pre><code>import { useDeferredValue, useState } from "react";
+
+function ProductSearch({ products }) {
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+
+  const visibleProducts = products.filter((product) =&gt;
+    product.name
+      .toLowerCase()
+      .includes(deferredSearch.toLowerCase())
+  );
+
+  return (
+    &lt;&gt;
+      &lt;input
+        value={search}
+        onChange={(event) =&gt; setSearch(event.target.value)}
+        aria-label="Search products"
+      /&gt;
+      &lt;ProductList products={visibleProducts} /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+<p>This conceptual example needs the correct TypeScript types and list component for your app. <code>useDeferredValue</code> does not reduce total filtering work or debounce network requests. It lets React prioritize urgent updates such as typing over less urgent rendering.</p></section>
+<section id="lists"><h2>8. Large Lists: Pagination, Virtualization, and DOM Cost</h2><p>Rendering thousands of rows can become slow even when the API is fast. Every DOM node adds work for layout, paint, accessibility processing, and React reconciliation.</p><ul><li><strong>Pagination:</strong> show a limited number of records at a time.</li><li><strong>Infinite loading:</strong> fetch more records as the user approaches the end.</li><li><strong>Virtualization:</strong> render only visible rows and a small buffer.</li></ul><p>Virtualization libraries such as TanStack Virtual can help, but they add comple
