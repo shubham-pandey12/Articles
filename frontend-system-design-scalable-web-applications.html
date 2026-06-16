@@ -52,4 +52,126 @@ main{max-width:820px;margin:42px auto 80px;padding:0 24px}section{margin:58px 0;
 </section>
 <section id="requirements"><h2>2. Start with requirements, not libraries</h2>
 <p>Before choosing a router, state library, or folder structure, clarify what the product needs.</p>
-<div class="two-col"><div class="panel"><h3>Functional requirements</h3><ul><li>Which pages and user flows are required?</li><li>Can users search, filter, sort, edit, or upload data?</li><li>Is authentication required? Are there different roles?</li><li>Which actions need optimistic updates or real-time feedback?</li><li>What happens when an API fails or returns no results?</li></ul>
+<div class="two-col"><div class="panel"><h3>Functional requirements</h3><ul><li>Which pages and user flows are required?</li><li>Can users search, filter, sort, edit, or upload data?</li><li>Is authentication required? Are there different roles?</li><li>Which actions need optimistic updates or real-time feedback?</li><li>What happens when an API fails or returns no results?</li></ul></div><div class="panel"><h3>Non-functional requirements</h3><ul><li>How quickly should useful content appear?</li><li>How many records can a page display?</li><li>Does it need mobile and keyboard accessibility?</li><li>Are SEO and shareable URLs important?</li><li>How many developers or teams will work on it?</li></ul></div></div>
+<p>Turn vague requirements into constraints. “The page should be fast” is not actionable. “The product list may contain 20,000 items, but the browser should render only a small visible window” points toward pagination or virtualization.</p>
+</section>
+<section id="architecture"><h2>3. Sketch the high-level architecture</h2>
+<p>A typical React application can be separated into layers with clear responsibilities.</p>
+<div class="architecture" role="img" aria-label="Architecture flow from browser to feature UI to application logic to API layer to backend">
+<div class="layer"><b>Browser</b><span>Routes · URL · User interaction · Accessibility</span></div><div class="arrow">↓</div>
+<div class="layer"><b>Page / Feature UI</b><span>ProductPage · SearchPanel · OrderDetails</span></div><div class="arrow">↓</div>
+<div class="layer"><b>Application Logic</b><span>Hooks · Use cases · Validation · Policies</span></div><div class="arrow">↓</div>
+<div class="layer"><b>Data / API Layer</b><span>API client · DTO mapping · Error handling</span></div><div class="arrow">↓</div>
+<div class="layer backend"><b>Backend services / APIs</b></div></div>
+<p>The exact number of layers is flexible. The important part is that each layer has a reason to change. A button's styling should not need to know how authentication tokens are attached to requests. A page should not need to duplicate HTTP error parsing.</p>
+</section>
+<section id="structure"><h2>4. Organize code around features</h2>
+<p>There is no one folder structure that is right for every application. As the application grows, organizing by business feature often makes ownership clearer.</p>
+<pre><code>src/
+  app/
+    App.tsx
+    router.tsx
+    providers.tsx
+  components/
+    ui/
+      Button/
+      Modal/
+      TextField/
+    layout/
+      AppShell/
+      PageHeader/
+  features/
+    products/
+      api/productsApi.ts
+      components/ProductCard.tsx
+      components/ProductFilters.tsx
+      hooks/useProducts.ts
+      pages/ProductsPage.tsx
+      types.ts
+      utils/productFormatters.ts
+    orders/
+      api/
+      components/
+      hooks/
+      pages/
+      types.ts
+  lib/
+    httpClient.ts
+    logger.ts
+  styles/
+  test/</code></pre>
+<h3>How to decide where code belongs</h3><ul><li><strong>Shared UI component:</strong> reusable presentation with a stable interface, such as a button or modal.</li><li><strong>Feature component:</strong> UI that makes sense mainly inside one feature, such as <code>ProductFilters</code>.</li><li><strong>Hook:</strong> reusable stateful behavior or coordination, not simply a way to hide every line of code.</li><li><strong>API module:</strong> endpoint calls, request parameters, and response handling.</li><li><strong>Utility:</strong> pure transformations such as currency formatting or sorting.</li><li><strong>App layer:</strong> routing, global providers, and application-wide configuration.</li></ul>
+<p>Do not move every two-line helper into a new folder. Abstraction has a cost. Extract code when it has a clear responsibility, is reused, or makes a complex boundary easier to test.</p>
+</section>
+<section id="components"><h2>5. Define component boundaries</h2><p>A good component should have a clear job and a reasonably small public interface.</p>
+<pre><code>type ProductCardProps = {
+  name: string;
+  price: number;
+  imageUrl: string;
+  onSelect: () =&gt; void;
+};
+
+export function ProductCard({
+  name, price, imageUrl, onSelect,
+}: ProductCardProps) {
+  return (
+    &lt;article className="product-card"&gt;
+      &lt;img src={imageUrl} alt="" loading="lazy" /&gt;
+      &lt;h2&gt;{name}&lt;/h2&gt;
+      &lt;p&gt;{price.toLocaleString()}&lt;/p&gt;
+      &lt;button onClick={onSelect}&gt;View product&lt;/button&gt;
+    &lt;/article&gt;
+  );
+}</code></pre>
+<p>This component displays a product and reports user intent. It does not fetch data, decide access permissions, or manage the whole page's filters.</p>
+<aside class="callout"><strong>Rule of thumb</strong><p>Keep decisions near the layer that owns them, and pass only the information a child needs.</p></aside>
+<p>Avoid both extremes: a giant page component that handles everything, and hundreds of tiny components whose names and props make simple flows harder to understand.</p>
+</section>
+<section id="state"><h2>6. Choose state based on ownership</h2>
+<p>State should live as close as possible to the components that need it, unless it must be shared.</p>
+<table><thead><tr><th>State type</th><th>Example</th><th>Good default</th></tr></thead><tbody>
+<tr><td>Local UI state</td><td>Modal open, current tab</td><td><code>useState</code></td></tr>
+<tr><td>URL state</td><td>Search query, sort, page</td><td>URL search params / router</td></tr>
+<tr><td>Server state</td><td>Products returned by API</td><td>Query/cache library or explicit data layer</td></tr>
+<tr><td>Shared client state</td><td>Active workspace, UI preferences</td><td>Context or a state store</td></tr>
+<tr><td>Form state</td><td>Field values, validation errors</td><td>Local state or form library</td></tr>
+</tbody></table>
+<p>Do not put every value in a global store. Global state creates shared coupling and makes ownership less obvious. For server data, remember that freshness, retries, invalidation, deduplication, and stale responses are different concerns from ordinary client state.</p>
+<h3>Keep shareable filters in the URL</h3><pre><code>/products?query=keyboard&amp;sort=price&amp;page=2</code></pre>
+<p>This gives users a link they can bookmark or share. It also supports browser back/forward behavior. The URL is a good source of truth for state that should survive refreshes or be shareable.</p>
+</section>
+<section id="data"><h2>7. Design the data-fetching flow</h2>
+<div class="flow"><div>User changes filter</div><span>↓</span><div>URL / feature state updates</div><span>↓</span><div>Query key changes</div><span>↓</span><div>API layer sends request</div><span>↓</span><div>Loading / success / error state</div><span>↓</span><div>UI renders current result</div></div>
+<p>For example, using TanStack Query:</p>
+<pre><code>function useProducts(query: string, page: number) {
+  return useQuery({
+    queryKey: ["products", { query, page }],
+    queryFn: () =&gt; productsApi.list({ query, page }),
+  });
+}</code></pre>
+<p>The query key should include the inputs that change the result. Otherwise, the cache may return data for the wrong filter. Keep API calls in a dedicated module so endpoint changes do not spread through the UI.</p>
+<h3>Handle all meaningful states</h3><ul><li>Initial loading</li><li>Refetching existing data</li><li>Empty results</li><li>Request failure</li><li>Partial or invalid data</li><li>A user changing filters while a request is in flight</li></ul>
+<p>Do not assume every request succeeds or that an empty array is the same as a failed request.</p>
+</section>
+<section id="api"><h2>8. Establish API and type boundaries</h2>
+<p>Backend response shapes often differ from what the UI wants to display. Keep the conversion explicit.</p>
+<pre><code>type ProductDto = {
+  product_id: string;
+  display_name: string;
+  price_in_cents: number;
+};
+
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+function toProduct(dto: ProductDto): Product {
+  return {
+    id: dto.product_id,
+    name: dto.display_name,
+    price: dto.price_in_cents / 100,
+  };
+}</code></pre>
+<p>This mapping prevents backend naming conventions from leaking throughout the 
