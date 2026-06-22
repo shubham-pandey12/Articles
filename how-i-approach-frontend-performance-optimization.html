@@ -149,4 +149,64 @@ function ProductSearch({ products }) {
   );
 }</code></pre>
 <p>This conceptual example needs the correct TypeScript types and list component for your app. <code>useDeferredValue</code> does not reduce total filtering work or debounce network requests. It lets React prioritize urgent updates such as typing over less urgent rendering.</p></section>
-<section id="lists"><h2>8. Large Lists: Pagination, Virtualization, and DOM Cost</h2><p>Rendering thousands of rows can become slow even when the API is fast. Every DOM node adds work for layout, paint, accessibility processing, and React reconciliation.</p><ul><li><strong>Pagination:</strong> show a limited number of records at a time.</li><li><strong>Infinite loading:</strong> fetch more records as the user approaches the end.</li><li><strong>Virtualization:</strong> render only visible rows and a small buffer.</li></ul><p>Virtualization libraries such as TanStack Virtual can help, but they add comple
+<section id="lists"><h2>8. Large Lists: Pagination, Virtualization, and DOM Cost</h2><p>Rendering thousands of rows can become slow even when the API is fast. Every DOM node adds work for layout, paint, accessibility processing, and React reconciliation.</p><ul><li><strong>Pagination:</strong> show a limited number of records at a time.</li><li><strong>Infinite loading:</strong> fetch more records as the user approaches the end.</li><li><strong>Virtualization:</strong> render only visible rows and a small buffer.</li></ul><p>Virtualization libraries such as TanStack Virtual can help, but they add complexity around row heights, keyboard navigation, focus, and accessibility. Use them when profiling shows DOM volume is a real bottleneck. Server-side pagination and filtering can also reduce transfer size, memory use, and client-side computation.</p></section>
+<section id="layout"><h2>9. Reduce Layout Shifts and Visual Instability</h2><p>A page that moves while someone tries to click is frustrating. CLS can increase when content appears without space being reserved.</p>
+<h3>Reserve space for images and embeds</h3><pre><code>.product-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}</code></pre>
+<pre><code>&lt;img
+  class="product-image"
+  src="/images/product.webp"
+  width="800"
+  height="600"
+  alt="Product"
+/&gt;</code></pre>
+<h3>Avoid inserting content above what the user is reading</h3><p>If a promotion banner appears after rendering, it can push the page down. Reserve space for it or place it so it does not displace existing content unexpectedly.</p>
+<h3>Handle fonts thoughtfully</h3><p>Font swaps can change text dimensions. Use suitable loading strategies, fallback fonts with similar metrics, and only load the weights and character subsets the site needs.</p>
+<h3>Use skeletons carefully</h3><p>Skeleton loaders should resemble the dimensions of final content. A skeleton much shorter than the real card can create a shift when replaced.</p></section>
+<section id="assets"><h2>10. Optimize Images and Other Assets</h2><p>Images can dominate page weight, especially on content-heavy websites and portfolios.</p><ol><li>Resize images to the dimensions actually needed.</li><li>Compress them and use modern formats where suitable.</li><li>Use responsive image sources for different screen sizes.</li><li>Include width and height or a stable aspect ratio.</li><li>Lazy-load off-screen images.</li><li>Prioritize only genuinely critical above-the-fold images.</li><li>Use a CDN or image transformation service when it provides measurable benefits.</li></ol>
+<pre><code>&lt;img
+  src="/images/project-800.webp"
+  srcset="
+    /images/project-400.webp 400w,
+    /images/project-800.webp 800w,
+    /images/project-1200.webp 1200w
+  "
+  sizes="(max-width: 600px) 100vw, 50vw"
+  width="1200"
+  height="800"
+  alt="Project dashboard"
+/&gt;</code></pre>
+<p>The browser uses <code>srcset</code> and <code>sizes</code> to choose a suitable resource. Make sure the hints match the actual layout. Choose formats based on visual quality, browser support, and the image pipeline rather than converting everything blindly.</p></section>
+<section id="network"><h2>11. Network Requests, Caching, and API Performance</h2><h3>Avoid request waterfalls</h3><p>A waterfall occurs when one request must finish before another can start, even though they could be independent. If the page needs a profile and product categories, request them concurrently when neither depends on the other:</p>
+<pre><code>const [profile, categories] = await Promise.all([
+  getProfile(),
+  getCategories(),
+]);</code></pre>
+<p>Only parallelize independent requests. If the second request needs an identifier returned by the first, that dependency is real.</p>
+<h3>Cache data appropriately</h3><ul><li>Static assets can often use long-lived caching with content-hashed filenames.</li><li>User-specific responses must not accidentally be shared between users.</li><li>Frequently changing data may need short freshness windows or revalidation.</li><li>Mutations should update or invalidate affected cached data deliberately.</li></ul><p>TanStack Query can manage client-side server-state caching, while HTTP caching headers govern browser and intermediary caches. They solve related but different problems.</p>
+<h3>Measure backend latency separately</h3><p>Use the Network panel to distinguish server wait time from download time and client-side processing. If the backend is slow, a React memoization change will not make the API respond faster. You may need backend profiling, query optimization, pagination, or an API contract change.</p></section>
+<section id="thirdparty"><h2>12. Third-Party Scripts and Main-Thread Work</h2><p>Analytics, chat widgets, experimentation tools, ads, and embedded media can add network requests and JavaScript execution. Audit which scripts are needed on each route, load optional tools after critical content where possible, and remove integrations that no longer provide value.</p><p>Consider consent requirements, analytics accuracy, and functional dependencies when changing script timing. If a long task blocks input, inspect the Performance trace to find the responsible script or function. A Web Worker can help with suitable CPU-intensive tasks, but DOM operations and most React rendering still belong on the main thread.</p></section>
+<section id="investigation"><h2>13. A Practical Performance Investigation</h2><p>Imagine the product dashboard feels slow on a mid-range mobile device. Work through the evidence rather than applying every optimization.</p>
+<h3>Step 1: Define the symptom</h3><p>The product grid appears late, and typing in the search field becomes delayed when there are many products.</p>
+<h3>Step 2: Measure</h3><p>Record a production-build trace. Check the LCP element, network waterfall, JavaScript execution, and React Profiler results. Reproduce with realistic data and a throttled device.</p>
+<h3>Step 3: Identify separate bottlenecks</h3><p>You might discover two independent issues: a hero image is oversized, and filtering/rendering thousands of products causes long main-thread tasks. These are example findings, not assumptions—let the trace confirm the cause.</p>
+<h3>Step 4: Choose targeted changes</h3><p>For the image, serve a correctly sized modern format and set appropriate priority. For the grid, consider server-side filtering or pagination first. If the UI must display a large continuous list, evaluate virtualization. If filtering itself is expensive, profile the calculation and consider memoization or deferred rendering.</p>
+<h3>Step 5: Measure again</h3><p>Repeat the same scenario under the same conditions. Compare LCP, interaction responsiveness, layout stability, bundle size, and search duration. Check keyboard navigation, screen-reader behavior, and loading states.</p>
+<h3>Step 6: Monitor real users</h3><p>Lab measurements are reproducible and useful for debugging, but field data reveals how the experience behaves across real devices and networks. Use real-user monitoring or available field datasets to check whether the improvement reaches users.</p></section>
+<section id="mistakes"><h2>14. Common Performance Mistakes</h2>
+<h3>Optimizing before measuring</h3><p>A popular technique can still be irrelevant to your bottleneck. Capture a trace and identify the expensive work first.</p>
+<h3>Adding <code>useMemo</code> and <code>useCallback</code> everywhere</h3><p>Memoization has costs and makes code harder to read. Use it where it prevents meaningful work or supports a clear referential-stability requirement.</p>
+<h3>Lazy-loading the LCP image</h3><p>The primary above-the-fold image is often needed as soon as possible. Lazy-loading it can delay discovery and harm LCP.</p>
+<h3>Lazy-loading everything</h3><p>Too many tiny chunks and loading boundaries can complicate navigation. Split meaningful features and measure the result.</p>
+<h3>Ignoring mobile conditions</h3><p>A fast desktop with a strong CPU and network does not represent every user. Test realistic devices and network conditions.</p>
+<h3>Measuring only in development</h3><p>Development mode includes extra checks and tooling that can change performance. Confirm important results in a production build.</p>
+<h3>Fixing a symptom rather than its cause</h3><p>A spinner can hide a delay, but it does not make data arrive faster. A skeleton can improve perceived loading but cannot replace fixing an oversized bundle or slow API.</p></section>
+<section id="checklist"><h2>15. Performance Checklist</h2><ul class="checklist"><li>Reproduce the issue under realistic device and network conditions.</li><li>Capture a baseline before changing code.</li><li>Identify the actual LCP element.</li><li>Inspect network waterfalls and main-thread tasks.</li><li>Analyze bundle size and route-level dependencies.</li><li>Optimize images and reserve layout space.</li><li>Profile expensive React rendering before memoizing.</li><li>Reduce unnecessary requests and avoid avoidable waterfalls.</li><li>Use pagination or virtualization when list size warrants it.</li><li>Check keyboard accessibility and loading/error states after changes.</li><li>Re-measure using the same scenario.</li><li>Verify impact with field data where available.</li></ul></section>
+<section id="conclusion"><h2>16. Conclusion</h2><p>Frontend performance optimization is a process, not a bag of tricks. Start from a user-visible problem, measure the current experience, find the bottleneck, and make the smallest change that addresses it.</p><p>For initial loading, investigate the critical path, images, CSS, JavaScript, and network requests. For slow interactions, inspect main-thread work, expensive calculations, React rendering, and large DOM trees. For visual instability, reserve space and control when content changes the layout.</p><p>The right fix depends on the evidence. Sometimes it is a smaller image. Sometimes it is fewer JavaScript bytes, a faster API, a virtualized list, or a simpler render path.</p><blockquote>Measure first. Optimize the bottleneck. Measure again.</blockquote><p>That habit leads to faster experiences—and helps keep performance improvements grounded in what users actually feel.</p><a class="back" href="#top">↑ Back to top</a></section>
+</main></div>
+<footer class="footer"><div>Technical article · Frontend Performance · React · Core Web Vitals<br>Performance targets and tooling evolve; validate results against current browser guidance and real-user measurements.</div></footer>
+</body>
+</html>
