@@ -372,4 +372,136 @@ export function ProductsPage() {
 </section>
 <section id="architecture">
 <h2>7. Understanding the Architecture</h2>
-<p>We now have several files, each with a clear responsibility. The important point is not the number of files; it is how responsibilities are 
+<p>We now have several files, each with a clear responsibility. The important point is not the number of files; it is how responsibilities are separated.</p>
+<div class="diagram" role="img" aria-label="Product page data flow diagram">
+<div class="flow"><span class="node">ProductsPage</span><span class="arrow">→</span><span class="node">useProducts</span><span class="arrow">→</span><span class="node">productsApi</span><span class="arrow">→</span><span class="node">Backend API</span></div>
+<p class="subnote">The response is managed by the query cache and exposed to the page.</p>
+<div class="flow"><span class="node">ProductsPage</span><span class="arrow">→</span><span class="node">ProductList</span><span class="arrow">→</span><span class="node">ProductCard</span></div>
+</div>
+<ul><li>API changes can be handled in the API module.</li><li>Query behavior can be managed through the data-fetching hook.</li><li>UI changes can be made to the list or card without rewriting the API.</li><li>Filtering can be tested as a pure function.</li><li>The page remains responsible for coordinating the screen.</li></ul>
+<p>The diagram represents logical flow, not every internal detail of TanStack Query. As the feature grows, add boundaries based on real requirements rather than predicting every possible future need.</p>
+</section>
+<section id="state">
+<h2>8. Understanding State Management</h2>
+<p>Not all state belongs in the same place. Classifying state by its purpose helps avoid unnecessary complexity.</p>
+<h3>Local UI state</h3><p>Examples include an open dropdown, selected tab, temporary form input, or tooltip visibility. Use <code>useState</code> when state is local to a component or a small part of the tree.</p>
+<h3>Shared client state</h3><p>Examples include a multi-step workflow, a complex editor, or preferences used by distant components. Start with props and local state. Use Context or a state library when sharing requirements justify it. Redux Toolkit can help when client state has complex update rules, multiple consumers, or a need for explicit transitions and debugging.</p>
+<h3>Server state</h3><p>Products, profiles, orders, and analytics data can become stale or change on the server. Server state involves caching, refetching, loading, errors, and synchronization. TanStack Query can handle many of these concerns.</p>
+<h3>URL state</h3><p>Search terms, pagination, sorting, and filters may belong in the URL if users should be able to bookmark, share, or refresh the page without losing them.</p>
+<blockquote>The goal is not to choose one state-management tool for everything. Choose the simplest appropriate location for each kind of state.</blockquote>
+</section>
+<section id="api">
+<h2>9. Designing a Maintainable API Layer</h2>
+<p>As an application grows, features may need shared API behavior such as authentication headers, timeouts, request identifiers, and common error handling. A shared HTTP client can centralize behavior when the requirements justify it.</p>
+<pre><code>export async function request&lt;T&gt;(
+  url: string,
+  init?: RequestInit
+): Promise&lt;T&gt; {
+  const response = await fetch(url, init);
+
+  if (!response.ok) {
+    throw new Error(
+      `Request failed with status ${response.status}`
+    );
+  }
+
+  return response.json() as Promise&lt;T&gt;;
+}</code></pre>
+<p>A feature can use it like this:</p>
+<pre><code>import { request } from "../../../lib/http";
+import type { Product } from "../types/product.types";
+
+export function getProducts(): Promise&lt;Product[]&gt; {
+  return request&lt;Product[]&gt;("/api/products");
+}</code></pre>
+<p>This is a starting point, not a complete production HTTP client. The generic type does not validate server JSON, and the helper does not standardize error types, timeouts, or authentication. Design the API layer around actual needs rather than building a large abstraction too early.</p>
+</section>
+<section id="reuse">
+<h2>10. Reusable Components Without Overengineering</h2>
+<p>Suppose two buttons share the same visual design and behavior. A shared button component makes sense. But a product card and a user profile card do not automatically need to become one generic card just because both contain an image, title, and text.</p>
+<p>Extract stable UI patterns when doing so improves consistency. Avoid giving every component dozens of configuration props before real use cases require them.</p>
+<pre><code>type ButtonProps = {
+  children: React.ReactNode;
+  disabled?: boolean;
+  onClick?: () =&gt; void;
+};
+
+export function Button({
+  children,
+  disabled = false,
+  onClick,
+}: ButtonProps) {
+  return (
+    &lt;button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+    &gt;
+      {children}
+    &lt;/button&gt;
+  );
+}</code></pre>
+<p>A production button should also consider focus indicators, keyboard interaction, visual variants, loading states, and accessibility.</p>
+<div class="callout good"><strong>Remember</strong><p>Good abstraction removes duplication and clarifies intent. Bad abstraction hides simple behavior behind unnecessary complexity.</p></div>
+</section>
+<section id="routing">
+<h2>11. Routing and Code Splitting</h2>
+<p>A growing application may have product, user, analytics, and settings pages. Loading every page's code at the beginning can increase the initial JavaScript bundle. Code splitting allows parts of the application to load when needed.</p>
+<pre><code>import { lazy, Suspense } from "react";
+import { createBrowserRouter } from "react-router-dom";
+
+const ProductsPage = lazy(
+  () =&gt; import("../features/products/pages/ProductsPage")
+);
+
+export const router = createBrowserRouter([
+  {
+    path: "/products",
+    element: (
+      &lt;Suspense fallback={&lt;p&gt;Loading page...&lt;/p&gt;}&gt;
+        &lt;ProductsPage /&gt;
+      &lt;/Suspense&gt;
+    ),
+  },
+]);</code></pre>
+<p>This is a simplified route configuration. A complete app also needs its router provider, layouts, error boundaries, and missing-route handling. Lazy loading is not automatically beneficial for every small component. Use production build analysis and browser measurements to decide where code splitting helps.</p>
+</section>
+<section id="testing">
+<h2>12. Testing the Architecture</h2>
+<p>A maintainable architecture should be easy to test. The boundaries we created give us natural places to test different kinds of behavior.</p>
+<h3>Unit tests</h3><p>Test pure functions such as <code>filterProducts</code> with empty searches, matching products, mixed letter casing, and unmatched results.</p>
+<h3>Component tests</h3><p>Render <code>ProductCard</code> and verify that the product name and price appear. Check that selecting the product calls the expected callback.</p>
+<h3>Integration tests</h3><p>Test the product page with its data-fetching behavior and loading, error, and success states. Mock the network boundary instead of relying on a live backend.</p>
+<h3>End-to-end tests</h3><p>Use a browser testing tool such as Playwright to verify a user journey: open the products page, wait for the list, search for a product, and open its details.</p>
+<p>These tests answer different questions. A unit test cannot prove the entire user journey works, while end-to-end tests may be too slow for every edge case. Combine focused unit tests, component and integration tests, and a smaller set of high-value end-to-end tests.</p>
+</section>
+<section id="mistakes">
+<h2>13. Common Architecture Mistakes</h2>
+<h3>Creating abstractions too early</h3><p>Do not build a universal form engine because one page needs a form. Start with the simplest implementation that fits the requirement and extract an abstraction when a clear need appears.</p>
+<h3>Creating a giant shared components folder</h3><p>Keep feature-specific components close to their features. The shared layer should contain genuinely shared functionality, not become a storage place for unrelated code.</p>
+<h3>Using global state for everything</h3><p>A dropdown's open state usually does not need to live in Redux just because the application uses Redux. Keep local state local unless there is a concrete reason to share it.</p>
+<h3>Duplicating server data</h3><p>If a server-state library already manages a product query, maintaining another manually synchronized copy in a global store can introduce stale data and unnecessary complexity. Decide which layer owns each piece of data.</p>
+<h3>Building giant components and giant hooks</h3><p>Moving hundreds of lines from a component into one custom hook does not automatically improve architecture. The hook should have a clear responsibility; otherwise, the complexity has only moved to another file.</p>
+<h3>Ignoring loading and error states</h3><p>Requests can fail, return empty results, or take longer than expected. Design these states intentionally rather than assuming every request succeeds.</p>
+<h3>Optimizing without measurements</h3><p>Memoization, code splitting, and virtualization are useful tools, but they introduce complexity too. Measure the problem before choosing the optimization.</p>
+</section>
+<section id="checklist">
+<h2>14. A Practical Checklist for New Features</h2>
+<ul class="checklist"><li>Is the feature's code organized in a clear location?</li><li>Are its data types explicit?</li><li>Is API communication separated from presentation?</li><li>Does each component have a clear responsibility?</li><li>Is state stored in the simplest appropriate place?</li><li>Are loading, empty, and error states handled?</li><li>Can important logic be tested independently?</li><li>Are shared components genuinely reusable?</li><li>Are accessibility and responsive behavior considered?</li><li>Are performance decisions based on evidence rather than assumptions?</li></ul>
+<p>You do not need to solve every possible future problem before shipping a feature. Use this checklist to catch avoidable complexity and missing behavior.</p>
+</section>
+<section id="conclusion">
+<h2>15. Conclusion</h2>
+<p>Scalable React development is not about creating the largest folder structure or using every available library. It is about making the code easier to change as requirements grow.</p>
+<p>We started with a component that handled API requests, filtering, state, and rendering. We then separated the API module, data-fetching behavior, reusable UI, filtering logic, and page composition. This gives each part a clearer responsibility and creates useful boundaries for testing and future changes.</p>
+<p>The best architecture depends on the size and needs of the application. A small project may need only a few components and hooks. A larger application may benefit from feature-based modules, explicit API boundaries, shared infrastructure, and dedicated state-management tools.</p>
+<blockquote>Build the simplest architecture that supports today's requirements while making tomorrow's changes easier.</blockquote>
+<p>Good architecture should help developers move faster with confidence, not force them to work around layers of unnecessary abstraction.</p>
+<div class="callout"><strong>Further practice</strong><ul><li>Implement the product example in a small React + TypeScript project.</li><li>Add pagination and sorting, then decide where their state belongs.</li><li>Write unit tests for filtering and component tests for product selection.</li><li>Measure the production bundle before and after adding route-level code splitting.</li></ul></div>
+<a class="top-link" href="#top">↑ Back to top</a>
+</section>
+</main>
+</div>
+<footer class="footer"><div class="footer-inner">Technical article · React · TypeScript · Frontend Architecture<br>Code examples are educational starting points. Validate API payloads at runtime and adapt infrastructure code to your application's security and reliability requirements.</div></footer>
+</body>
+</html>
