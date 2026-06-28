@@ -174,4 +174,58 @@ function toProduct(dto: ProductDto): Product {
     price: dto.price_in_cents / 100,
   };
 }</code></pre>
-<p>This mapping prevents backend naming conventions from leaking throughout the 
+<p>This mapping prevents backend naming conventions from leaking throughout the UI. TypeScript catches many development-time mistakes, but it does not validate unknown JSON at runtime. For untrusted or externally supplied data, validate at the boundary when the risk justifies it.</p>
+</section>
+<section id="routing"><h2>9. Routing, layouts, and code splitting</h2>
+<pre><code>/                         → Home
+/products                 → Product list
+/products/:productId      → Product details
+/orders                   → Orders
+/orders/:orderId          → Order details
+/settings/profile         → Profile settings</code></pre>
+<p>Routes should represent meaningful destinations, not every tiny UI state. Use shared layouts for navigation and page shells. Use route-level code splitting when it reduces the amount of JavaScript needed for the initial page.</p>
+<pre><code>const OrdersPage = lazy(
+  () =&gt; import("./features/orders/pages/OrdersPage")
+);</code></pre>
+<p>Lazy loading is not automatically beneficial everywhere. Splitting too aggressively can create many small network requests or delay important UI. Measure the initial bundle and real user experience, then split large or infrequently used features.</p>
+</section>
+<section id="performance"><h2>10. Performance is an architectural concern</h2>
+<ul><li>Load only what the route needs.</li><li>Use pagination or virtualization for large collections.</li><li>Compress and appropriately size images.</li><li>Cache server responses where freshness rules allow it.</li><li>Avoid waterfalls by starting independent requests in parallel.</li><li>Keep expensive calculations out of repeated render paths.</li><li>Measure before adding memoization.</li><li>Track Core Web Vitals and real-user behavior where possible.</li></ul>
+<p>If a page requests a profile and then waits for it before starting an independent list request, it creates an unnecessary waterfall. If requests are independent, start them concurrently.</p>
+<pre><code>const [profile, products] = await Promise.all([
+  getProfile(),
+  getProducts(),
+]);</code></pre>
+<p>Only parallelize requests that truly do not depend on one another. Also consider loading priorities, caching, error handling, and whether the UI can progressively display useful content.</p>
+</section>
+<section id="accessibility"><h2>11. Accessibility and security belong in the design</h2>
+<p>Accessibility is not a final styling task. Plan semantic HTML, keyboard navigation, focus behavior, visible focus indicators, labels, error messages, and sensible heading structure as components are designed.</p>
+<ul><li>Do not treat frontend route guards as authorization; the backend must enforce permissions.</li><li>Avoid storing sensitive credentials in client-side code.</li><li>Do not render untrusted HTML without an appropriate sanitization strategy.</li><li>Handle authentication expiry and forbidden responses consistently.</li><li>Avoid leaking secrets in logs or client bundles.</li></ul>
+<p>The frontend can improve usability and reduce accidental access, but it cannot replace server-side security controls.</p>
+</section>
+<section id="testing"><h2>12. Testing strategy follows the boundaries</h2>
+<ul><li><strong>Unit tests:</strong> pure transformations, validation, formatters, and isolated logic.</li><li><strong>Component/integration tests:</strong> a feature's visible behavior when components and data interactions work together.</li><li><strong>End-to-end tests:</strong> a small number of critical journeys, such as sign-in, checkout, or creating an order.</li></ul>
+<p>Prefer testing observable behavior over internal implementation details. A component should not need extensive mocking of private helper functions just to test that a user can submit a form.</p>
+</section>
+<section id="failure"><h2>13. Failure handling and observability</h2>
+<p>Real applications encounter timeouts, expired sessions, unexpected responses, and third-party outages. Design these cases instead of treating them as surprises.</p>
+<ul><li>Show actionable, accessible error messages.</li><li>Provide retry behavior where retrying is safe.</li><li>Preserve user input when a request fails.</li><li>Avoid duplicate submissions for sensitive actions.</li><li>Log useful diagnostic information without exposing private data.</li><li>Track errors and performance by route or feature.</li><li>Use error boundaries to isolate rendering failures where appropriate.</li></ul>
+<p>A generic “Something went wrong” may be acceptable for an unexpected crash, but a failed save should ideally tell the user what happened and how to recover.</p>
+</section>
+<section id="team"><h2>14. Scaling a team: contracts and ownership</h2>
+<p>As more developers contribute, code ownership and interfaces become as important as component design.</p>
+<ul><li>Agree on API contracts and error formats.</li><li>Define conventions for routing, query keys, and forms.</li><li>Keep feature modules from importing one another's internal implementation unnecessarily.</li><li>Use linting, type checking, and automated tests in CI.</li><li>Document unusual decisions and their trade-offs.</li><li>Introduce monorepos or micro frontends only when the coordination problem justifies them.</li></ul>
+<p>A shared component library can improve consistency, but it also needs versioning, documentation, accessibility standards, and a clear contribution process.</p>
+</section>
+<section id="mistakes"><h2>15. Common design mistakes</h2>
+<ol><li><strong>Choosing tools before understanding requirements.</strong> Start with constraints and workflows.</li><li><strong>Putting everything in global state.</strong> Share only what genuinely needs shared ownership.</li><li><strong>Mixing API calls with presentation.</strong> Create a clear data boundary.</li><li><strong>Over-abstracting early.</strong> Wait for a real repeated pattern or a meaningful boundary.</li><li><strong>Ignoring loading and failure states.</strong> They are part of the product, not edge cases.</li><li><strong>Memoizing everything.</strong> Optimization has complexity and should be supported by measurement.</li><li><strong>Using frontend checks as security.</strong> Enforce authorization on the server.</li><li><strong>Creating micro frontends too early.</strong> Operational and integration costs can outweigh the benefits.</li></ol>
+</section>
+<section id="checklist"><h2>16. A practical design checklist</h2>
+<ul class="checklist"><li>Are the core user flows and non-functional constraints clear?</li><li>Are routes and shareable URL state defined?</li><li>Does each feature have a clear ownership boundary?</li><li>Is server state handled differently from local UI state?</li><li>Are API response types and error handling centralized?</li><li>Are loading, empty, failure, and retry states designed?</li><li>Is the initial route bundle reasonable?</li><li>Are accessibility and security requirements included?</li><li>Can important behavior be tested without brittle implementation details?</li><li>Will the architecture remain understandable to the next developer?</li></ul>
+</section>
+<section><h2>Conclusion</h2><p>Good frontend system design is not about having the most folders, the newest state library, or the largest architecture diagram. It is about making responsibilities clear, data flow predictable, and changes safe.</p><p>Start with requirements. Define feature and API boundaries. Put state where it belongs. Design for loading, failure, accessibility, and performance. Then evolve the architecture when real product or team constraints demand it.</p><blockquote>The best architecture is the one that helps your team deliver the next feature without making the previous features harder to maintain.</blockquote></section>
+</main>
+<footer><p>Frontend System Design · Portfolio Article</p></footer>
+
+</body>
+</html>
