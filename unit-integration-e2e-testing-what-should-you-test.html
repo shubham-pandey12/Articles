@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A practical guide to unit, integration, and end-to-end testing in React, with Vitest, Testing Library, Playwright, mocking, accessibility, and CI examples.">
+<title>Unit, Integration, and E2E Testing: What Should You Test?</title>
+<style>
+:root{color-scheme:light;--ink:#202633;--muted:#5f6b7a;--line:#e1e6ed;--soft:#f5f7fa;--accent:#3157c8;--accent-soft:#edf2ff;--code:#111827}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:#fff;color:var(--ink);font:17px/1.78 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.hero{padding:76px 24px 54px;background:linear-gradient(145deg,#f3f6ff,#fff 62%);border-bottom:1px solid var(--line);text-align:center}.hero>*{max-width:850px;margin-left:auto;margin-right:auto}.eyebrow{font-size:.75rem;letter-spacing:.16em;font-weight:800;color:var(--accent)}h1{font-size:clamp(2.2rem,5vw,4rem);line-height:1.12;letter-spacing:-.045em;margin-top:18px;margin-bottom:18px}.subtitle{font-size:1.15rem;color:var(--muted);max-width:720px}.meta{display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:26px}.meta span{border:1px solid #dce3f3;background:#fff;border-radius:999px;padding:4px 12px;font-size:.8rem;color:#43506b}.toc{max-width:900px;margin:36px auto 12px;padding:24px 30px;background:var(--soft);border:1px solid var(--line);border-radius:18px}.toc h2{margin-top:0;font-size:1.1rem}.toc ol{columns:2;column-gap:36px;padding-left:22px;margin-bottom:0}.toc li{break-inside:avoid;margin:4px 0;font-size:.9rem}.toc a{color:#35445f;text-decoration:none}.toc a:hover{color:var(--accent);text-decoration:underline}main{max-width:820px;margin:42px auto 80px;padding:0 24px}section{margin:58px 0;scroll-margin-top:24px}h2{font-size:1.75rem;line-height:1.3;letter-spacing:-.025em;margin-bottom:18px}h3{font-size:1.12rem;margin-bottom:8px}p{margin:0 0 18px}li{padding-left:4px;margin:6px 0}ul,ol{padding-left:25px}strong{font-weight:700}a{color:var(--accent)}code{font:.88em/1.6 "SFMono-Regular",Consolas,"Liberation Mono",monospace;background:#eef1f6;border-radius:5px;padding:2px 5px}pre{overflow-x:auto;padding:22px 24px;border-radius:14px;background:var(--code);color:#e5e7eb;line-height:1.65;font-size:.86rem;margin:22px 0}pre code{padding:0;background:transparent;color:inherit;font-size:inherit}.callout{margin:26px 0;padding:18px 22px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}.callout p{margin:5px 0 0}table{width:100%;border-collapse:collapse;margin:22px 0;font-size:.92rem}th,td{border:1px solid var(--line);padding:12px 14px;text-align:left;vertical-align:top}th{background:var(--soft)}.pyramid{display:flex;flex-direction:column;align-items:center;gap:8px;padding:25px 12px;margin:24px 0;background:var(--soft);border:1px solid var(--line);border-radius:16px}.pyramid>div{padding:13px 18px;border:1px solid #cfd8ee;border-radius:10px;text-align:center;background:white;font-weight:700;color:#243b7a}.pyramid small{display:block;font-weight:400;color:var(--muted)}.pyramid-top{width:44%}.pyramid-mid{width:67%}.pyramid-base{width:90%}.pipeline{display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px;background:var(--soft);border-radius:14px}.pipeline div{width:min(100%,440px);padding:10px 14px;background:#fff;border:1px solid #cfd8ee;border-radius:9px;text-align:center}.pipeline span{color:var(--accent);font-weight:800}.checklist{list-style:"☐  ";padding-left:24px}blockquote{margin:30px 0;padding:20px 25px;border-left:4px solid var(--accent);background:var(--soft);font-size:1.1rem;font-weight:650}footer{border-top:1px solid var(--line);padding:28px;text-align:center;color:var(--muted);font-size:.85rem}@media(max-width:650px){body{font-size:16px}.hero{padding:54px 20px 40px}.toc{margin:24px 16px;padding:20px}.toc ol{columns:1}main{padding:0 19px;margin-top:30px}h2{font-size:1.5rem}pre{padding:17px;font-size:.8rem}table{display:block;overflow-x:auto}.pyramid-top{width:62%}.pyramid-mid{width:80%}.pyramid-base{width:96%}}@media print{.toc{break-inside:avoid}body{font-size:11pt}.hero{padding:30px}pre{white-space:pre-wrap}a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <p class="eyebrow">FRONTEND ENGINEERING · TESTING</p>
+  <h1>Unit, Integration, and E2E Testing: What Should You Test?</h1>
+  <p class="subtitle">A practical guide to choosing the right test level, testing user-visible behavior, and building confidence without creating a slow or brittle test suite.</p>
+  <div class="meta"><span>React</span><span>Vitest</span><span>Testing Library</span><span>Playwright</span></div>
+</header>
+<nav class="toc" aria-label="Table of contents"><h2>In this article</h2><ol>
+<li><a href="#confidence">Testing is about confidence</a></li><li><a href="#levels">The three main levels</a></li><li><a href="#unit">Unit tests</a></li><li><a href="#integration">Integration tests</a></li><li><a href="#e2e">E2E tests</a></li><li><a href="#login">Example: login form</a></li><li><a href="#behavior">Test behavior, not internals</a></li><li><a href="#states">Cover states</a></li><li><a href="#async">Async behavior and race conditions</a></li><li><a href="#mocks">Mock carefully</a></li><li><a href="#a11y">Accessibility testing</a></li><li><a href="#ci">Testing in CI</a></li><li><a href="#mistakes">Common mistakes</a></li><li><a href="#choose">How to choose</a></li><li><a href="#plan">React feature test plan</a></li><li><a href="#checklist">Checklist</a></li>
+</ol></nav>
+<main>
+<section id="confidence"><h2>1. Testing is about confidence, not test count</h2>
+<p>A test suite is useful when it helps a team change software without accidentally breaking important behavior. Hundreds of tests do not automatically mean an application is well tested. Tests may repeat low-value checks, assert implementation details, or fail whenever a harmless refactor changes internal structure.</p>
+<aside class="callout"><strong>Ask this instead</strong><p>What could break, how would we notice, and what is the cheapest reliable way to detect it?</p></aside>
+<p>For a product search page, you might test a price formatter, verify that a filter updates results, check the error state after an API failure, and protect the full journey from search to cart. These are different behaviors, so they deserve different strategies.</p></section>
+<section id="levels"><h2>2. The three main levels</h2>
+<div class="pyramid"><div class="pyramid-top">E2E tests <small>Complete user journeys</small></div><div class="pyramid-mid">Integration tests <small>Components + state + APIs</small></div><div class="pyramid-base">Unit tests <small>Small, isolated behavior</small></div></div>
+<h3>Unit tests</h3><p>Test a small unit of logic in isolation, such as a formatter, validator, or calculation. They are usually fast and help pinpoint a failure.</p>
+<h3>Integration tests</h3><p>Test whether multiple pieces work together. For frontend applications, this might mean rendering a form, entering values, submitting it, and checking the visible result while mocking the network boundary.</p>
+<h3>End-to-end (E2E) tests</h3><p>Drive the application through a real browser or browser-like environment and verify complete user journeys. They can catch routing, integration, and configuration problems, but are typically slower and need more maintenance.</p>
+<p>There is no universal ratio that every project must follow. The right mix depends on risk, architecture, and how expensive each test is to maintain.</p></section>
+<section id="unit"><h2>3. Unit tests: test logic that can fail independently</h2><p>Unit tests are a good fit for deterministic logic with meaningful input/output behavior: formatting, calculations, validation, sorting, data mapping, and permission decisions.</p>
+<pre><code>export function calculateTotal(
+  price: number,
+  quantity: number,
+  discountPercent = 0
+) {
+  if (price &lt; 0 || quantity &lt; 0) {
+    throw new Error("Price and quantity must be non-negative");
+  }
+
+  const subtotal = price * quantity;
+  return subtotal * (1 - discountPercent / 100);
+}</code></pre>
+<pre><code>import { describe, expect, it } from "vitest";
+import { calculateTotal } from "./calculateTotal";
+
+describe("calculateTotal", () =&gt; {
+  it("calculates a total with a discount", () =&gt; {
+    expect(calculateTotal(100, 2, 10)).toBe(180);
+  });
+
+  it("returns zero for zero quantity", () =&gt; {
+    expect(calculateTotal(100, 0)).toBe(0);
+  });
+
+  it("rejects negative quantities", () =&gt; {
+    expect(() =&gt; calculateTotal(100, -1)).toThrow();
+  });
+});</code></pre>
+<p>This covers a normal case, a boundary case, and invalid input. Tests should cover meaningful behavior, not just typical examples.</p>
+<h3>When not to write a unit test</h3><p>A test for a trivial wrapper may add little value if it only repeats the implementation. Testing every private helper can make refactoring unnecessarily painful. Focus on behavior that matters and logic with meaningful risk.</p></section>
+<section id="integration"><h2>4. Integration tests: verify behavior across boundaries</h2><p>Many frontend bugs occur between components, state, routing, and data. A filter might render correctly by itself but fail when connected to query parameters or fetched results.</p>
+<pre><code>import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { SearchForm } from "./SearchForm";
+
+describe("SearchForm", () =&gt; {
+  it("submits the entered search term", async () =&gt; {
+    const user = userEvent.setup();
+    const onSearch = vi.fn();
+
+    render(&lt;SearchForm onSearch={onSearch} /&gt;);
+
+    await user.type(
+      screen.getByRole("textbox", { name: /search products/i }),
+      "keyboard"
+    );
+    await user.click(
+      screen.getByRole("button", { name: /search/i })
+    );
+
+    expect(onSearch).toHaveBeenCalledWith("keyboard");
+  });
+});</code></pre>
+<p>This test focuses on what a user does and what the application reports, not internal state variable names.</p>
+<h3>Should integration tests mock the API?</h3><p>Often, yes. Mocking at the network boundary makes tests repeatable and lets you simulate success, empty results, slow responses, and errors. Keep mock responses close to the real API contract. Tools such as Mock Service Worker (MSW) can intercept network requests without changing production code paths.</p></section>
+<section id="e2e"><h2>5. E2E tests: protect critical user journeys</h2><p>E2E tests run through a real application flow, usually in a browser. They help check that routing, browser events, frontend bundles, backend integration, and critical business behavior work together.</p>
+<ol><li>Open the product listing.</li><li>Search for an item.</li><li>Open its details.</li><li>Add it to the cart.</li><li>Enter valid checkout information.</li><li>Submit the order.</li><li>Verify the confirmation page.</li></ol>
+<pre><code>import { test, expect } from "@playwright/test";
+
+test("customer can add a product to the cart", async ({ page }) =&gt; {
+  await page.goto("/products");
+
+  await page.getByRole("searchbox", { name: /search products/i })
+    .fill("keyboard");
+  await page.getByRole("button", { name: /search/i }).click();
+
+  await page.getByRole("link", { name: /mechanical keyboard/i }).click();
+  await page.getByRole("button", { name: /add to cart/i }).click();
+
+  await expect(page.getByRole("status"))
+    .toContainText(/added to cart/i);
+});</code></pre>
+<p>Exact selectors and routes depend on the application. Prefer accessible roles and labels because they are meaningful to users and less coupled to CSS implementation.</p>
+<p>Do not turn E2E into a giant suite. Browser tests can be slow and fail due to environment or test data. Test detailed calculations and edge cases at lower levels; use E2E for journeys whose failure would seriously affect users.</p></section>
+<section id="login"><h2>6. A practical example: testing a login form</h2><p>Suppose a login form has email and password fields, a submit button, validation, and an API request.</p>
+<table><thead><tr><th>Behavior</th><th>Suggested level</th><th>Why</th></tr></thead><tbody><tr><td>Email validation rule</td><td>Unit</td><td>Pure logic with many input cases</td></tr><tr><td>Password-required rule</td><td>Unit</td><td>Small deterministic rule</td></tr><tr><td>Error after invalid submission</td><td>Integration</td><td>Checks form and validation UI</td></tr><tr><td>Successful submit calls auth API and navigates</td><td>Integration</td><td>Verifies form and network boundary</td></tr><tr><td>User signs in and reaches dashboard</td><td>E2E</td><td>Protects the full critical journey</td></tr><tr><td>Session expiry redirects to sign-in</td><td>Integration or E2E</td><td>Choose based on where the risk lies</td></tr></tbody></table>
+<p>The same feature may need multiple test levels, but each test should cover a distinct risk rather than duplicate the exact same assertion.</p></section>
+<section id="behavior"><h2>7. Test user-visible behavior, not implementation details</h2><p>Brittle tests ask how a component is implemented: whether an internal function was called, whether a state variable has a particular name, or whether a CSS class exists. Sometimes implementation assertions are appropriate, but frontend tests are usually more robust when they focus on behavior.</p><ul><li>Can the user find and operate the control?</li><li>Does the right message appear?</li><li>Does the correct result show after submission?</li><li>Is the button disabled when submission is invalid?</li><li>Does the user receive feedback when the request fails?</li></ul><p>Prefer <code>getByRole</code>, <code>getByLabelText</code>, and <code>getByText</code> over selectors tied to internal class names.</p></section>
+<section id="states"><h2>8. Cover states, not just the happy path</h2>
+<table><thead><tr><th>State</th><th>What to verify</th></tr></thead><tbody><tr><td>Loading</td><td>A clear loading indicator is present</td></tr><tr><td>Success</td><td>Expected rows and values appear</td></tr><tr><td>Empty</td><td>A helpful empty state appears</td></tr><tr><td>Error</td><td>An error message and recovery option appear</td></tr><tr><td>Filtering</td><td>Results match the selected filter</td></tr><tr><td>Pagination</td><td>The next page shows the correct data</td></tr><tr><td>Permission denied</td><td>Restricted actions are not offered; server still enforces access</td></tr><tr><td>Slow request</td><td>The UI behaves as intended while waiting</td></tr></tbody></table>
+<p>Not every state needs a separate E2E test. Most can be covered by component or integration tests, with a few critical flows protected in the browser.</p></section>
+<section id="async"><h2>9. Async behavior, timers, and race conditions</h2><p>Tests should wait for the expected result instead of relying on arbitrary sleeps.</p>
+<pre><code>// Avoid arbitrary waits
+await new Promise((resolve) =&gt; setTimeout(resolve, 1000));
+
+// Prefer condition-based assertions
+expect(
+  await screen.findByText(/results loaded/i)
+).toBeInTheDocument();</code></pre>
+<p>For debounce logic, use fake timers in unit tests when appropriate. For request races, test a scenario where a user changes the search term quickly and ensure stale results do not overwrite newer ones. Use controlled promises or network handlers rather than random delays.</p></section>
+<section id="mocks"><h2>10. Mock carefully</h2><p>Good reasons to mock include third-party services you do not control, network outcomes that need to be deterministic, time, randomness, or browser APIs that are difficult to control.</p><p>Be cautious about mocking the component's own business logic, every hook, the entire data layer in a test meant to validate data integration, or backend response shapes without a contract. Mock at the boundary of the behavior under test. If a test is about how a form responds to an API error, mock the HTTP response and let the real form logic run.</p></section>
+<section id="a11y"><h2>11. Accessibility testing belongs in normal tests</h2><p>Accessibility is part of functionality. Include checks that inputs have labels, buttons have meaningful accessible names, dialogs manage focus, errors are associated with fields, keyboard users can operate key flows, and status updates are announced appropriately.</p><p>Accessible selectors improve tests too. A query using <code>getByRole("button", { name: /save/i })</code> checks that the button has a useful accessible name, not just that a DOM node exists. Automated tools catch some issues, but do not replace keyboard and screen-reader testing for important journeys.</p></section>
+<section id="ci"><h2>12. Where each test level fits in CI</h2><div class="pipeline"><div>Pull request</div><span>↓</span><div>Lint + TypeScript</div><span>↓</span><div>Unit tests</div><span>↓</span><div>Component / integration tests</div><span>↓</span><div>Build + bundle checks</div><span>↓</span><div>Critical E2E / smoke tests</div><span>↓</span><div>Deploy + post-deploy checks</div></div><p>The exact order varies. Unit and integration tests may run in parallel. E2E tests may run on every pull request or in a dedicated pre-release pipeline. Optimize for quick feedback without skipping high-risk coverage. Preserve traces or screenshots when useful and keep test data reproducible.</p></section>
+<section id="mistakes"><h2>13. Common testing mistakes</h2><ol><li><strong>Testing only the happy path.</strong> Include important invalid, empty, and error states.</li><li><strong>Testing every detail at E2E level.</strong> Browser tests are more expensive and harder to diagnose.</li><li><strong>Asserting internal implementation.</strong> Refactors should not break tests if behavior remains the same.</li><li><strong>Using arbitrary timeouts.</strong> Wait for meaningful conditions.</li><li><strong>Over-mocking.</strong> A test can pass while the real integration is broken.</li><li><strong>Sharing mutable test data.</strong> Tests can become order-dependent and flaky.</li><li><strong>Ignoring accessibility.</strong> A visually correct control may still be unusable.</li><li><strong>Measuring quality by test count or coverage alone.</strong> Coverage does not prove meaningful behavior is protected.</li><li><strong>Keeping flaky tests without ownership.</strong> Flaky tests reduce trust.</li></ol></section>
+<section id="choose"><h2>14. How to choose what to test</h2><ol><li>Is it deterministic logic with inputs and outputs? Start with a unit test.</li><li>Does it depend on multiple components, state, routing, or network handling? Use an integration test.</li><li>Must you verify the complete browser journey across deployment and backend boundaries? Add an E2E test.</li><li>Is the behavior business-critical, security-sensitive, or costly to break? Increase coverage at the most useful levels.</li><li>Does a test duplicate another without catching a distinct failure? Simplify or remove the duplication.</li></ol><p>Consider failure impact and likelihood. A currency calculation may deserve strong unit coverage. Sign-in or checkout may deserve a few E2E checks. A decorative tooltip may need only a focused component test—or no dedicated test if risk is low.</p></section>
+<section id="plan"><h2>15. A practical test plan for a React feature</h2><ul><li><strong>Unit:</strong> query normalization, sorting, formatting, filter calculations.</li><li><strong>Integration:</strong> query submission, loading results, empty/error states, pagination, retry.</li><li><strong>E2E:</strong> search for a product, open details, add to cart.</li><li><strong>Accessibility:</strong> label and role checks, keyboard navigation for key interactions.</li><li><strong>Performance/observability:</strong> monitor slow API calls and route performance outside ordinary functional assertions.</li></ul><p>This is not a fixed formula. Adjust it to the feature's risk and the cost of maintaining each test.</p></section>
+<section id="checklist"><h2>16. Final checklist</h2><ul class="checklist"><li>Tests protect behavior that matters to users or the business.</li><li>Pure logic is tested at unit level where useful.</li><li>Components and data interactions are tested together.</li><li>A small set of critical journeys is covered end to end.</li><li>Loading, empty, error, validation, and permission states are considered.</li><li>Tests use accessible queries and meaningful assertions.</li><li>Network mocks reflect the real API contract.</li><li>Async tests wait for conditions rather than arbitrary delays.</li><li>Test data is isolated and repeatable.</li><li>Failures are actionable and flaky tests are fixed promptly.</li><li>Coverage is a signal, not the sole measure of quality.</li></ul></section>
+<section><h2>Conclusion</h2><p>Unit, integration, and E2E tests are complementary tools. Unit tests help you trust individual rules. Integration tests help you trust how frontend pieces work together. E2E tests help you trust the critical journeys users depend on.</p><p>Do not chase a perfect test pyramid or a universal coverage percentage. Identify important failure modes, test them at the cheapest reliable level, and keep the suite stable enough that developers trust its feedback.</p><blockquote>A good test suite is not the one that tests the most code. It is the one that catches meaningful regressions quickly and makes safe change easier.</blockquote></section>
+</main><footer><p>Frontend Testing · Portfolio Article</p></footer>
+
+</body>
+</html>
