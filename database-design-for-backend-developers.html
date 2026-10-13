@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A practical guide to relational database design, relationships, indexes, transactions, migrations, and query optimization for backend developers.">
+<title>Database Design for Backend Developers</title>
+<style>
+:root{color-scheme:light;--ink:#202633;--muted:#5f6b7a;--line:#e1e6ed;--soft:#f5f7fa;--accent:#3157c8;--accent-soft:#edf2ff;--code:#111827}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:#fff;color:var(--ink);font:17px/1.78 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.hero{padding:76px 24px 54px;background:linear-gradient(145deg,#f3f6ff,#fff 62%);border-bottom:1px solid var(--line);text-align:center}.hero>*{max-width:850px;margin-left:auto;margin-right:auto}.eyebrow{font-size:.75rem;letter-spacing:.16em;font-weight:800;color:var(--accent)}h1{font-size:clamp(2.2rem,5vw,4rem);line-height:1.12;letter-spacing:-.045em;margin-top:18px;margin-bottom:18px}.subtitle{font-size:1.15rem;color:var(--muted);max-width:720px}.meta{display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:26px}.meta span{border:1px solid #dce3f3;background:#fff;border-radius:999px;padding:4px 12px;font-size:.8rem;color:#43506b}.toc{max-width:900px;margin:36px auto 12px;padding:24px 30px;background:var(--soft);border:1px solid var(--line);border-radius:18px}.toc h2{margin-top:0;font-size:1.1rem}.toc ol{columns:2;column-gap:36px;padding-left:22px;margin-bottom:0}.toc li{break-inside:avoid;margin:4px 0;font-size:.9rem}.toc a{color:#35445f;text-decoration:none}.toc a:hover{color:var(--accent);text-decoration:underline}main{max-width:820px;margin:42px auto 80px;padding:0 24px}section{margin:58px 0;scroll-margin-top:24px}h2{font-size:1.75rem;line-height:1.3;letter-spacing:-.025em;margin-bottom:18px}h3{font-size:1.12rem;margin-bottom:8px}p{margin:0 0 18px}li{padding-left:4px;margin:6px 0}ul,ol{padding-left:25px}strong{font-weight:700}a{color:var(--accent)}code{font:.88em/1.6 "SFMono-Regular",Consolas,"Liberation Mono",monospace;background:#eef1f6;border-radius:5px;padding:2px 5px}pre{overflow-x:auto;padding:22px 24px;border-radius:14px;background:var(--code);color:#e5e7eb;line-height:1.65;font-size:.86rem;margin:22px 0}pre code{padding:0;background:transparent;color:inherit;font-size:inherit}.callout{margin:26px 0;padding:18px 22px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}.callout p{margin:5px 0 0}table{width:100%;border-collapse:collapse;margin:22px 0;font-size:.92rem}th,td{border:1px solid var(--line);padding:12px 14px;text-align:left;vertical-align:top}th{background:var(--soft)}.architecture{display:flex;flex-direction:column;align-items:center;gap:7px;padding:22px 12px;margin:24px 0;background:var(--soft);border:1px solid var(--line);border-radius:16px}.architecture .node{width:min(100%,520px);padding:10px 15px;border:1px solid #cfd8ee;border-radius:10px;text-align:center;background:#fff}.architecture .primary{background:var(--accent-soft);border-color:#9db0ee;font-weight:700}.architecture span{color:var(--accent);font-weight:800}.checklist{list-style:"☐  ";padding-left:24px}blockquote{margin:30px 0;padding:20px 25px;border-left:4px solid var(--accent);background:var(--soft);font-size:1.1rem;font-weight:650}footer{border-top:1px solid var(--line);padding:28px;text-align:center;color:var(--muted);font-size:.85rem}@media(max-width:650px){body{font-size:16px}.hero{padding:54px 20px 40px}.toc{margin:24px 16px;padding:20px}.toc ol{columns:1}main{padding:0 19px;margin-top:30px}h2{font-size:1.5rem}pre{padding:17px;font-size:.8rem}table{display:block;overflow-x:auto}}@media print{.toc{break-inside:avoid}body{font-size:11pt}.hero{padding:30px}pre{white-space:pre-wrap}a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+<p class="eyebrow">BACKEND ENGINEERING · DATABASES</p>
+<h1>Database Design for Backend Developers</h1>
+<p class="subtitle">Relationships, indexes, transactions, and query optimization—with practical SQL examples and production-focused trade-offs.</p>
+<div class="meta"><span>SQL</span><span>PostgreSQL / MySQL</span><span>Schema Design</span><span>Performance</span></div>
+</header>
+<nav class="toc" aria-label="Table of contents"><h2>In this article</h2><ol>
+<li><a href="#why">Why design matters</a></li><li><a href="#entities">Entities and business rules</a></li><li><a href="#schema">Relational schema</a></li><li><a href="#constraints">Keys and constraints</a></li><li><a href="#relationships">Relationship types</a></li><li><a href="#normalization">Normalization</a></li><li><a href="#transactions">Transactions and ACID</a></li><li><a href="#indexes">Indexes</a></li><li><a href="#plans">Query plans</a></li><li><a href="#nplusone">N+1 queries</a></li><li><a href="#pagination">Pagination</a></li><li><a href="#querying">Query only what you need</a></li><li><a href="#migrations">Migrations</a></li><li><a href="#soft-delete">Soft deletes and audit</a></li><li><a href="#types">Data types and money</a></li><li><a href="#debugging">Debugging workflow</a></li>
+</ol></nav>
+<main>
+<section id="why"><h2>1. Why database design matters</h2><p>A backend can have clean controllers and well-tested services but still become slow or unreliable if the database model is wrong. Poor schema choices create duplicate data, inconsistent updates, expensive queries, and risky migrations.</p><p>Database design decides what facts the system stores, how records relate, which rules must always be true, how data is read and updated, and how the model evolves safely. This article focuses on relational databases such as PostgreSQL and MySQL; syntax and features vary by database.</p></section>
+<section id="entities"><h2>2. Start with entities and business rules</h2><p>For a commerce application, imagine these rules: a customer can place many orders; an order belongs to one customer; an order contains many products; a product can appear in many orders; quantities must be positive; and each order item preserves the price agreed at purchase time.</p><div class="architecture"><div class="node">Customer</div><span>1 ─────── *</span><div class="node">Order</div><span>1 ─────── *</span><div class="node primary">OrderItem</div><span>* ─────── 1</span><div class="node">Product</div></div><p><code>OrderItem</code> connects orders and products and stores relationship-specific data such as quantity and purchase price.</p></section>
+<section id="schema"><h2>3. A practical relational schema</h2><pre><code>CREATE TABLE customers (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email VARCHAR(254) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE products (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  sku VARCHAR(80) NOT NULL UNIQUE,
+  name VARCHAR(200) NOT NULL,
+  current_price DECIMAL(12, 2) NOT NULL CHECK (current_price >= 0),
+  is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE orders (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  customer_id BIGINT NOT NULL REFERENCES customers(id),
+  status VARCHAR(30) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE order_items (
+  order_id BIGINT NOT NULL REFERENCES orders(id),
+  product_id BIGINT NOT NULL REFERENCES products(id),
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price DECIMAL(12, 2) NOT NULL CHECK (unit_price >= 0),
+  PRIMARY KEY (order_id, product_id)
+);</code></pre><p>This is illustrative, not a complete production schema. A real system may need currency, tax, discounts, snapshots of product descriptions, order status constraints, and more.</p><aside class="callout"><strong>Why keep unit_price on the order item?</strong><p>The product's current price can change. An old order should preserve the price agreed at checkout. The catalog price describes the present; the order-item price records the historical transaction. This is intentional duplication for correctness.</p></aside></section>
+<section id="constraints"><h2>4. Primary keys, foreign keys, and constraints</h2><h3>Primary keys</h3><p>A primary key uniquely identifies a row. It should be stable and not depend on a user-editable value such as an email. Numeric IDs and UUIDs are common; natural keys can also be unique constraints.</p><h3>Foreign keys</h3><p>A foreign key prevents a row from referring to a parent that does not exist. Choose deletion behavior deliberately:</p><ul><li><strong>RESTRICT / NO ACTION:</strong> prevent deletion while children exist, subject to database semantics.</li><li><strong>CASCADE:</strong> delete dependent rows automatically.</li><li><strong>SET NULL:</strong> keep the child but remove its reference, if allowed.</li></ul><p>Cascade is powerful but can delete more data than expected. Use it only when it matches the business rule.</p><h3>Constraints are executable business rules</h3><p>Use <code>NOT NULL</code>, <code>UNIQUE</code>, <code>CHECK</code>, and foreign keys for invariants the database can enforce. Application validation improves user-facing errors, but database constraints protect against concurrent requests, scripts, background jobs, and future code paths. Read your database's semantics for nullable unique columns and check expressions.</p></section>
+<section id="relationships"><h2>5. One-to-one, one-to-many, and many-to-many</h2><h3>One-to-one</h3><pre><code>CREATE TABLE user_profiles (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id),
+  bio TEXT,
+  avatar_url TEXT
+);</code></pre><p>The primary key on <code>user_id</code> ensures each user has at most one profile.</p><h3>One-to-many</h3><p>For one customer with many orders, put the foreign key on the “many” side: <code>orders.customer_id REFERENCES customers(id)</code>.</p><h3>Many-to-many</h3><pre><code>CREATE TABLE product_categories (
+  product_id BIGINT NOT NULL REFERENCES products(id),
+  category_id BIGINT NOT NULL REFERENCES categories(id),
+  PRIMARY KEY (product_id, category_id)
+);</code></pre><p>The composite primary key prevents duplicate relationships. If a relationship has its own properties—such as <code>assigned_at</code>, <code>role</code>, or <code>sort_order</code>—the junction table is a natural place to store them.</p></section>
+<section id="normalization"><h2>6. Normalization: reduce accidental duplication</h2><p>Imagine storing <code>customer_name</code>, <code>customer_email</code>, and <code>product_name</code> on every order row. A customer's email change would require updating many rows; missing one creates conflicting facts. A normalized model stores customers, orders, products, and order items separately, connected by keys.</p><ul><li><strong>Update anomaly:</strong> one fact must be changed in many places.</li><li><strong>Insertion anomaly:</strong> a fact cannot be stored without an unrelated fact.</li><li><strong>Deletion anomaly:</strong> deleting one record accidentally removes another important fact.</li></ul><p>Do not eliminate all duplication blindly. Snapshots, reporting tables, caches, and performance-oriented denormalization can be appropriate. Know which copy is authoritative and how other copies stay consistent.</p></section>
+<section id="transactions"><h2>7. Transactions and ACID</h2><p>A transaction groups operations into one logical unit. If a required step fails, it can roll back so the database does not retain a half-finished result.</p><ul><li><strong>Atomicity:</strong> all operations happen, or none do.</li><li><strong>Consistency:</strong> committed changes preserve constraints and invariants.</li><li><strong>Isolation:</strong> concurrent transactions are controlled by the isolation level.</li><li><strong>Durability:</strong> committed changes survive failures according to database guarantees and configuration.</li></ul><pre><code>BEGIN;
+
+UPDATE accounts
+SET balance = balance - 100
+WHERE id = 1 AND balance >= 100;
+
+-- Application must verify exactly one row was updated.
+UPDATE accounts
+SET balance = balance + 100
+WHERE id = 2;
+
+COMMIT;</code></pre><p>This is incomplete without handling a failed debit, a missing destination account, and exceptions. Check affected-row counts and roll back on failure. Without a transaction, a crash after the debit can leave the system inconsistent.</p><p>Isolation levels trade off correctness guarantees, blocking, and retries. Transactions also do not make a workflow atomic across external systems; for payment/email/database workflows, consider idempotency, an outbox, or a saga pattern.</p></section>
+<section id="indexes"><h2>8. Indexes: speed up reads, add write cost</h2><p>An index helps the database find rows without scanning the entire table. It can improve filtering, joins, and sorting, but uses storage and adds work to inserts, updates, and deletes.</p><pre><code>SELECT id, status, created_at
+FROM orders
+WHERE customer_id = 42
+ORDER BY created_at DESC
+LIMIT 20;
+
+CREATE INDEX idx_orders_customer_created
+ON orders (customer_id, created_at DESC);</code></pre><p>The index may help because the query filters by customer and sorts by creation time. Whether the planner uses it depends on table size, data distribution, and query shape.</p><h3>Composite index order matters</h3><p>An index on <code>(customer_id, created_at)</code> is not identical to one on <code>(created_at, customer_id)</code>. Composite B-tree indexes are generally most useful when queries constrain leading columns, though exact behavior varies. Design indexes around equality filters, ranges, joins, sort order, and pagination patterns.</p><p>Do not index every column. Too many indexes increase storage, write amplification, and migration cost. Covering indexes can avoid table lookups in some engines, but they increase index size and are not always worth it.</p></section>
+<section id="plans"><h2>9. Read query plans instead of guessing</h2><p>Use query-plan tools. In PostgreSQL, <code>EXPLAIN</code> shows a plan; <code>EXPLAIN ANALYZE</code> executes the query and reports observed timing and row counts.</p><pre><code>EXPLAIN ANALYZE
+SELECT id, status, created_at
+FROM orders
+WHERE customer_id = 42
+ORDER BY created_at DESC
+LIMIT 20;</code></pre><p>Inspect sequential vs. index scans, estimated vs. actual rows, join strategy, sorts, repeated loops, and time spent in each node. A sequential scan is not automatically bad: for a small table or a query returning much of the table, it may be cheaper than using an index.</p><aside class="callout"><strong>Be careful with EXPLAIN ANALYZE.</strong><p>It runs the query. Use a safe environment and be cautious with expensive statements or statements that have side effects.</p></aside></section>
+<section id="nplusone"><h2>10. Avoid N+1 queries</h2><pre><code>const orders = await orderRepository.findRecent();
+
+for (const order of orders) {
+  order.customer = await customerRepository.findById(order.customerId);
+}</code></pre><p>If 100 orders are returned, this can make 101 database calls. Consider joining the related table, fetching all customers in one query, using a batch loader, or selecting only needed fields. A join is not always the answer: it may duplicate result data or complicate pagination. Measure against the desired response shape.</p></section>
+<section id="pagination"><h2>11. Pagination: offset versus cursor</h2><h3>Offset pagination</h3><pre><code>SELECT id, created_at
+FROM orders
+ORDER BY created_at DESC, id DESC
+LIMIT 25 OFFSET 5000;</code></pre><p>Simple and supports page numbers, but deep offsets can be expensive and concurrent inserts can shift page contents.</p><h3>Cursor / keyset pagination</h3><pre><code>SELECT id, created_at
+FROM orders
+WHERE (created_at, id) &lt; (:last_created_at, :last_id)
+ORDER BY created_at DESC, id DESC
+LIMIT 25;</code></pre><p>This illustrates keyset pagination for descending order. The cursor uses a stable, unique ordering combination. Exact syntax and tuple comparison support vary by database. Cursor pagination is often better for feeds and large datasets; offset pagination may be enough for small admin tables. Always use deterministic ordering with a unique tie-breaker.</p></section>
+<section id="querying"><h2>12. Query only what you need</h2><pre><code>SELECT id, name, current_price
+FROM products
+WHERE is_active = TRUE
+ORDER BY name
+LIMIT 50;</code></pre><p>Avoid <code>SELECT *</code> in endpoints that need only a few fields. Explicit columns clarify the data contract and may reduce transfer and processing. Also avoid repeated queries in loops, batch independent lookups, limit result sizes, choose appropriate types, check connection-pool saturation, and measure before adding complexity.</p></section>
+<section id="migrations"><h2>13. Migrations: evolve schema safely</h2><p>Use versioned migrations rather than manually changing production databases. A safer rollout often follows <strong>expand → migrate → contract</strong>:</p><ol><li><strong>Expand:</strong> add a nullable column or compatible schema change.</li><li><strong>Deploy compatible code:</strong> support old and new representations if needed.</li><li><strong>Backfill:</strong> populate existing rows in controlled batches.</li><li><strong>Switch:</strong> make the new column authoritative after validation.</li><li><strong>Contract:</strong> remove old fields after running code no longer depends on them.</li></ol><p>Large index creation and backfills need planning. Test on production-like data, estimate locks and disk usage, define rollback or forward-fix plans, deploy code and schema compatibly, and monitor load. A rollback is not always a true reversal after data has been transformed or discarded.</p></section>
+<section id="soft-delete"><h2>14. Soft deletes and audit history</h2><pre><code>ALTER TABLE customers
+ADD COLUMN deleted_at TIMESTAMP NULL;</code></pre><p>Soft deletion can aid recovery, but every relevant query must apply the deletion rule; uniqueness, foreign keys, storage, and privacy requirements need attention. A deleted timestamp does not explain who changed a row or why. Use an explicit audit log when the domain requires that history. Legal or privacy requirements may require physical erasure.</p></section>
+<section id="types"><h2>15. Data types and money</h2><ul><li>Use integer types for counts and identifiers where appropriate.</li><li>Use timestamps with a clear timezone policy.</li><li>Use <code>DECIMAL</code>/<code>NUMERIC</code> for exact decimal values such as money rather than binary floating point.</li><li>Use constraints for allowed ranges and states.</li><li>Store currency explicitly when values can span currencies.</li></ul><p>For financial amounts, define rounding rules and currency precision in the domain. A <code>DECIMAL(12,2)</code> column alone does not implement tax, exchange rates, or business rounding policy.</p></section>
+<section id="debugging"><h2>16. Practical debugging workflow</h2><ol><li>Reproduce the request with realistic parameters.</li><li>Measure endpoint latency and isolate database time.</li><li>Find the actual SQL queries being executed.</li><li>Check query count for N+1 behavior.</li><li>Run a query plan in a safe environment.</li><li>Compare estimated and actual rows.</li><li>Inspect indexes and filter/sort patterns.</li><li>Check locks, connection pools, and concurrent load.</li><li>Change one thing at a time.</li><li>Re-measure latency and resource usage.</li></ol><p>A query that is fast on ten rows may behave very differently on ten million. Test with representative data volumes.</p></section>
+<section id="mistakes"><h2>17. Common database design mistakes</h2><ol><li>Storing repeated facts without a reason.</li><li>Relying only on application checks for uniqueness.</li><li>Forgetting foreign keys and allowing orphaned records.</li><li>Using floating point for exact money values.</li><li>Adding indexes without checking query patterns.</li><li>Assuming every sequential scan is bad.</li><li>Running one query per item in a list.</li><li>Using unstable ordering for pagination.</li><li>Performing multi-step writes without a transaction.</li><li>Running a large migration without estimating locks and load.</li><li>Using soft delete without explicit query rules.</li><li>Optimizing from intuition rather than query plans.</li></ol></section>
+<section id="checklist"><h2>18. Implementation checklist</h2><ul class="checklist"><li>Entities and relationships reflect business rules.</li><li>Primary and foreign keys protect relationships.</li><li>Important invariants use appropriate constraints.</li><li>Many-to-many relationships use junction tables.</li><li>Historical snapshots are preserved where required.</li><li>Multi-step writes use transactions.</li><li>Indexes match measured filters, joins, and sort patterns.</li><li>Slow query plans are reviewed.</li><li>Queries avoid N+1 behavior and fetch needed fields only.</li><li>Pagination uses deterministic ordering.</li><li>Migrations are versioned, tested, and compatible.</li><li>Data types match precision and timezone requirements.</li><li>Soft-delete and audit requirements are explicit.</li><li>Performance is checked with realistic data volumes.</li></ul></section>
+<section><h2>Conclusion</h2><p>Good database design starts with business facts and invariants, not a list of columns. Relationships and constraints protect correctness; transactions protect multi-step updates; indexes and query plans help performance; and safe migrations let the system evolve.</p><blockquote>Model the domain clearly, let the database enforce what must always be true, and use measurements to guide optimization.</blockquote></section>
+</main><footer><p>Backend Engineering · Portfolio Article</p></footer>
+
+</body>
+</html>
