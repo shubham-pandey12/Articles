@@ -1,0 +1,900 @@
+# Building Scalable React Applications: From Components to Architecture
+
+**Category:** Frontend Engineering  
+**Reading time:** 15–18 minutes  
+**Tags:** React, TypeScript, Software Architecture, Clean Code, Scalability
+
+## Introduction
+
+React makes it easy to start building a user interface. You create a component, add some state, fetch data, and render the result. In the beginning, everything feels simple.
+
+But imagine you are building a dashboard for a growing business. Initially, it has only a few pages. A few months later, it includes authentication, user management, analytics, notifications, filters, data tables, and several API integrations.
+
+Suddenly, the code becomes harder to manage.
+
+A single component might handle API requests, validation, filtering, loading states, and rendering. Similar buttons and cards are implemented differently across pages. A small change in one feature unexpectedly breaks another.
+
+The problem is not necessarily React itself. The problem is how we organize the application as it grows.
+
+**Scalable React architecture is about making future changes easier without adding unnecessary complexity today.**
+
+In this article, we will build a practical approach to structuring React applications using TypeScript. We will discuss reusable components, custom hooks, feature-based architecture, API services, state management, testing, and common mistakes.
+
+Our example will be a product dashboard that grows from a simple page into a maintainable application.
+
+## 1. What Does Scalability Mean in Frontend Development?
+
+When developers hear the word *scalability*, they often think about servers handling millions of requests.
+
+In frontend development, scalability also means that an application can grow without becoming unnecessarily difficult to understand, test, or modify.
+
+A scalable React application should make it easy to:
+
+- Add a new feature without rewriting unrelated features.
+- Reuse UI elements without duplicating their implementation.
+- Change business logic without rebuilding the entire interface.
+- Test components and behavior independently.
+- Allow multiple developers to work on different features.
+- Find the source of a bug without searching through hundreds of unrelated files.
+
+Consider two implementations of a product list.
+
+The first implementation puts everything in one component. It fetches products, filters results, handles errors, and renders every UI element.
+
+The second implementation separates these responsibilities into a page, a data-fetching hook, an API module, and reusable UI components.
+
+Both can display exactly the same screen. However, the second approach usually becomes easier to maintain as requirements grow.
+
+That does not mean every component needs its own file or every function needs a custom hook. Architecture should solve real problems, not create more files for the sake of organization.
+
+## 2. The Problems with an Unstructured React Application
+
+Let's begin with a common implementation.
+
+```tsx
+import { useEffect, useState } from "react";
+
+type Product = {
+  id: number;
+  name: string;
+  price: number;
+};
+
+export default function App() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadProducts() {
+      setLoading(true);
+
+      try {
+        const response = await fetch("/api/products");
+
+        if (!response.ok) {
+          throw new Error("Failed to load products");
+        }
+
+        const data: Product[] = await response.json();
+        setProducts(data);
+      } catch {
+        setError("Unable to load products");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProducts();
+  }, []);
+
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <main>
+      <h1>Products</h1>
+
+      <input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search products"
+      />
+
+      {loading && <p>Loading...</p>}
+      {error && <p role="alert">{error}</p>}
+
+      <ul>
+        {filteredProducts.map((product) => (
+          <li key={product.id}>
+            {product.name} - ${product.price}
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+```
+
+This component is not automatically bad code. For a small demonstration, it is perfectly reasonable.
+
+The problems begin when requirements increase.
+
+For example, suppose we need pagination, sorting, product details, retry behavior, and a second page that displays the same product data.
+
+The component now has more responsibilities. Reusing the API logic becomes harder, and testing the filtering behavior separately requires more effort.
+
+We should not refactor simply because a component has reached a particular number of lines. Instead, we should identify responsibilities that change independently and separate them when doing so improves clarity.
+
+## 3. The Core Principles of Scalable React Architecture
+
+Before changing the folder structure, let's understand the principles behind it.
+
+### 3.1 Separation of concerns
+
+Each part of the application should have a clear responsibility.
+
+For example:
+
+- A page coordinates the main screen.
+- A UI component displays information and handles local interactions.
+- A custom hook manages reusable stateful behavior.
+- An API module communicates with the backend.
+- A utility function handles a small, reusable operation.
+
+These responsibilities can work together without being placed inside one giant component.
+
+### 3.2 Reusability
+
+If several pages use the same button, form field, or loading indicator, a shared component can keep their behavior consistent.
+
+However, two components that look similar do not always need to be merged. If they have different purposes or are likely to evolve differently, keeping them separate may be the better choice.
+
+### 3.3 High cohesion and low coupling
+
+**High cohesion** means that related code stays together.
+
+**Low coupling** means that one part of the application does not depend unnecessarily on the internal details of another part.
+
+For example, the product feature should not need to know how the application stores authentication tokens internally. It should use a clearly defined API or authentication interface.
+
+These principles reduce the number of unrelated places that need to change when a requirement changes.
+
+### 3.4 Explicit data flow
+
+React applications become easier to understand when data flows through clear boundaries.
+
+A page receives or obtains the data it needs, passes appropriate values to child components, and responds to user actions through explicit callbacks.
+
+Avoid hidden dependencies and excessive global state when local state or a clear function argument is enough.
+
+## 4. Choosing a Folder Structure That Can Grow
+
+A common beginner approach is to organize every file by type:
+
+```text
+src/
+├── components/
+├── hooks/
+├── pages/
+├── services/
+├── types/
+└── utils/
+```
+
+This is a valid starting point. The problem appears when each folder contains files from dozens of unrelated features.
+
+For example, finding everything related to products might require searching through components, hooks, services, and types separately.
+
+For a medium-sized application, I prefer a **feature-based structure with a small shared layer**.
+
+Here is an example:
+
+```text
+src/
+├── app/
+│   ├── App.tsx
+│   ├── router.tsx
+│   └── providers.tsx
+│
+├── components/
+│   ├── ui/
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   ├── Spinner.tsx
+│   │   └── EmptyState.tsx
+│   └── layout/
+│       ├── AppLayout.tsx
+│       ├── Header.tsx
+│       └── Sidebar.tsx
+│
+├── features/
+│   ├── products/
+│   │   ├── api/
+│   │   │   └── productsApi.ts
+│   │   ├── components/
+│   │   │   ├── ProductList.tsx
+│   │   │   └── ProductCard.tsx
+│   │   ├── hooks/
+│   │   │   └── useProducts.ts
+│   │   ├── pages/
+│   │   │   └── ProductsPage.tsx
+│   │   ├── types/
+│   │   │   └── product.types.ts
+│   │   └── utils/
+│   │       └── filterProducts.ts
+│   │
+│   └── users/
+│       ├── api/
+│       ├── components/
+│       ├── hooks/
+│       ├── pages/
+│       └── types/
+│
+├── lib/
+│   └── http.ts
+│
+├── hooks/
+├── utils/
+└── main.tsx
+```
+
+This is an example, not a mandatory structure. A smaller application may not need all these folders.
+
+The important decision is to keep feature-specific code together while sharing genuinely common functionality through clearly defined modules.
+
+### What belongs where?
+
+| Location | Responsibility |
+|---|---|
+| `app/` | Application setup, routing, and providers |
+| `components/ui/` | Generic UI components used across features |
+| `components/layout/` | Shared page layouts and navigation |
+| `features/products/` | Product-specific UI, logic, API, and types |
+| `lib/` | Shared infrastructure, such as an HTTP client |
+| `hooks/` | Hooks that are genuinely shared across features |
+| `utils/` | Small, reusable, preferably pure functions |
+
+A useful rule is:
+
+**Organize code around the business features developers work on, not only around the technical file types they create.**
+
+For example, a developer working on product search should be able to find its page, query logic, API functions, and related types within the products feature.
+
+## 5. Building the Application Step by Step
+
+Let's now refactor our original example.
+
+### Step 1: Define the data types
+
+Create `features/products/types/product.types.ts`.
+
+```ts
+export type Product = {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+};
+```
+
+TypeScript helps us catch mistakes during development. It also documents the shape of data used by our components and API functions.
+
+For example, a component expecting `product.price` to be a number can rely on that declared type at compile time.
+
+However, TypeScript types do not validate external JSON at runtime. If an API response is untrusted, use runtime validation where appropriate.
+
+### Step 2: Move API communication into a separate module
+
+Create `features/products/api/productsApi.ts`.
+
+```ts
+import type { Product } from "../types/product.types";
+
+export async function getProducts(
+  signal?: AbortSignal
+): Promise<Product[]> {
+  const response = await fetch("/api/products", { signal });
+
+  if (!response.ok) {
+    throw new Error("Unable to fetch products");
+  }
+
+  return (await response.json()) as Product[];
+}
+```
+
+Now the page does not need to know the details of the HTTP request.
+
+If the endpoint changes, we have one clear place to update it.
+
+Notice that the TypeScript assertion does not validate the server response. In a production application, a runtime schema validator or an appropriately typed API client can provide stronger guarantees.
+
+For a larger application, a shared HTTP client can also centralize authentication headers, request identifiers, and common error handling.
+
+### Step 3: Separate the data-fetching behavior
+
+We could fetch data directly inside the page using `useEffect`. For a small application, that can be sufficient.
+
+But when several components need the same query, or when we need caching, background refetching, retries, and request deduplication, a server-state library such as TanStack Query can reduce the amount of custom code we must maintain.
+
+Install it if the project does not already use it:
+
+```bash
+npm install @tanstack/react-query
+```
+
+Create `features/products/hooks/useProducts.ts`.
+
+```tsx
+import { useQuery } from "@tanstack/react-query";
+import { getProducts } from "../api/productsApi";
+
+export function useProducts() {
+  return useQuery({
+    queryKey: ["products"],
+    queryFn: ({ signal }) => getProducts(signal),
+  });
+}
+```
+
+This hook defines how product data is retrieved and identifies the query through its key.
+
+The query key matters because it helps the library identify and cache the data. If the result depends on a category or search parameter, that parameter should normally be included in the key.
+
+We also need a `QueryClientProvider` near the root of the application:
+
+```tsx
+import {
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
+
+export function Providers({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+}
+```
+
+Initialize the client once at the application level, rather than creating a new client on every render.
+
+The key benefit is that the page no longer needs to manage every network state manually. It can focus on displaying the result.
+
+### Step 4: Extract a reusable UI component
+
+Create `features/products/components/ProductCard.tsx`.
+
+```tsx
+import type { Product } from "../types/product.types";
+
+type ProductCardProps = {
+  product: Product;
+  onSelect?: (product: Product) => void;
+};
+
+export function ProductCard({
+  product,
+  onSelect,
+}: ProductCardProps) {
+  return (
+    <article className="product-card">
+      <h2>{product.name}</h2>
+      <p>Category: {product.category}</p>
+      <p>${product.price.toFixed(2)}</p>
+
+      {onSelect && (
+        <button onClick={() => onSelect(product)}>
+          View details
+        </button>
+      )}
+    </article>
+  );
+}
+```
+
+The component receives a product through props and renders it.
+
+It does not fetch data, know about routing, or maintain a separate copy of the product list. The optional callback allows a parent to respond to the user's selection.
+
+This makes the component easier to reuse and test.
+
+Do not make every UI component configurable with dozens of props. Add flexibility when a real use case needs it.
+
+### Step 5: Create the product list
+
+Create `features/products/components/ProductList.tsx`.
+
+```tsx
+import type { Product } from "../types/product.types";
+import { ProductCard } from "./ProductCard";
+
+type ProductListProps = {
+  products: Product[];
+  onSelectProduct: (product: Product) => void;
+};
+
+export function ProductList({
+  products,
+  onSelectProduct,
+}: ProductListProps) {
+  if (products.length === 0) {
+    return <p>No products found.</p>;
+  }
+
+  return (
+    <div className="product-grid">
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          onSelect={onSelectProduct}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+The list handles one clear responsibility: displaying a collection of products.
+
+It does not know where the products came from. The same component could display data obtained from a server, a test fixture, or another source.
+
+Notice the stable `key` on each card. React uses keys to identify items when lists change.
+
+### Step 6: Extract filtering logic
+
+Create `features/products/utils/filterProducts.ts`.
+
+```ts
+import type { Product } from "../types/product.types";
+
+export function filterProducts(
+  products: Product[],
+  search: string
+): Product[] {
+  const normalizedSearch = search.trim().toLowerCase();
+
+  if (!normalizedSearch) {
+    return products;
+  }
+
+  return products.filter((product) =>
+    product.name.toLowerCase().includes(normalizedSearch)
+  );
+}
+```
+
+This is a pure function: the same inputs produce the same result, and it does not modify the original array.
+
+Pure functions are useful because they are easy to test independently of React.
+
+For example, we can test empty search terms, mixed letter casing, and products that do not match without rendering a component.
+
+### Step 7: Compose the page
+
+Finally, create `features/products/pages/ProductsPage.tsx`.
+
+```tsx
+import { useMemo, useState } from "react";
+import { ProductList } from "../components/ProductList";
+import { useProducts } from "../hooks/useProducts";
+import { filterProducts } from "../utils/filterProducts";
+import type { Product } from "../types/product.types";
+
+export function ProductsPage() {
+  const [search, setSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] =
+    useState<Product | null>(null);
+
+  const {
+    data: products = [],
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useProducts();
+
+  const filteredProducts = useMemo(
+    () => filterProducts(products, search),
+    [products, search]
+  );
+
+  if (isPending) {
+    return <p>Loading products...</p>;
+  }
+
+  if (isError) {
+    return (
+      <section>
+        <p role="alert">
+          {error.message || "Unable to load products."}
+        </p>
+        <button onClick={() => refetch()}>
+          Try again
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <main>
+      <h1>Products</h1>
+
+      <label htmlFor="product-search">
+        Search products
+      </label>
+
+      <input
+        id="product-search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Enter a product name"
+      />
+
+      <ProductList
+        products={filteredProducts}
+        onSelectProduct={setSelectedProduct}
+      />
+
+      {selectedProduct && (
+        <aside aria-live="polite">
+          Selected: {selectedProduct.name}
+          <button onClick={() => setSelectedProduct(null)}>
+            Clear selection
+          </button>
+        </aside>
+      )}
+    </main>
+  );
+}
+```
+
+This page coordinates the user interface. It owns the search term and selected product, reads server data through the custom hook, and passes the appropriate information to the list.
+
+We used `useMemo` for the filtering calculation, but it is not mandatory. For a small product list, calculating the filtered result directly may be simpler. Memoization is useful when the calculation is expensive enough to justify it or when referential stability matters to downstream consumers.
+
+The page also distinguishes loading, error, and successful states. These states are important because a production UI must handle more than the happy path.
+
+## 6. Understanding the Architecture
+
+We now have several files, each with a clear responsibility.
+
+The important point is not the number of files. It is the direction in which responsibilities are separated.
+
+Here is a simplified view of the data flow:
+
+```text
+ProductsPage
+    |
+    | calls
+    v
+useProducts
+    |
+    | uses
+    v
+productsApi
+    |
+    | sends HTTP request
+    v
+Backend API
+    |
+    | returns product data
+    v
+Query Cache
+    |
+    | exposes data to the page
+    v
+ProductList
+    |
+    | renders
+    v
+ProductCard
+```
+
+The diagram represents the logical flow rather than every internal implementation detail of TanStack Query.
+
+This structure gives us several benefits:
+
+- API changes can be handled in the API module.
+- Query behavior can be managed through the data-fetching hook.
+- UI changes can be made to the list or card without rewriting the API.
+- Filtering can be tested as a pure function.
+- The page remains responsible for coordinating the screen.
+
+When the feature grows, we can introduce more components or services based on actual requirements rather than predicting every possible future need.
+
+## 7. Understanding State Management
+
+State management is another area where React applications can become unnecessarily complex.
+
+Not all state belongs in the same place.
+
+A useful starting point is to classify state by its purpose.
+
+### Local UI state
+
+Examples include:
+
+- Whether a dropdown is open.
+- The selected tab in a small component.
+- A temporary form input.
+- Whether a tooltip is visible.
+
+Use `useState` when the state is local to a component or a small part of the component tree.
+
+### Shared client state
+
+Examples include:
+
+- A multi-step workflow shared across screens.
+- A complex client-side editor.
+- UI preferences used by multiple distant components.
+
+Start with props and local state. Use Context or a dedicated state-management library when the sharing requirements justify it.
+
+Redux Toolkit, for example, can be useful when client state has complex update rules, multiple consumers, or a need for explicit state transitions and debugging tools.
+
+### Server state
+
+Examples include:
+
+- Products returned by an API.
+- User profile information.
+- Orders and analytics results.
+- Data that may become stale or change on the server.
+
+Server state has concerns such as caching, refetching, loading, errors, and synchronization. TanStack Query can handle many of these concerns.
+
+### URL state
+
+Examples include:
+
+- Search terms.
+- Pagination.
+- Sorting.
+- Selected categories.
+- Filters that users should be able to bookmark or share.
+
+If a user should be able to refresh the page and keep the same search or filter selection, consider representing that state in the URL.
+
+**The goal is not to choose one state-management tool for everything. It is to choose the simplest appropriate location for each kind of state.**
+
+## 8. Designing a Maintainable API Layer
+
+As an application grows, many features may need common API behavior.
+
+For example, several modules might need consistent handling of authentication, request timeouts, error responses, and JSON parsing.
+
+Instead of implementing these rules separately in every component, create a shared HTTP client or API utility when the requirements justify it.
+
+A simple typed helper could look like this:
+
+```ts
+export async function request<T>(
+  url: string,
+  init?: RequestInit
+): Promise<T> {
+  const response = await fetch(url, init);
+
+  if (!response.ok) {
+    throw new Error(
+      `Request failed with status ${response.status}`
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+```
+
+A feature can then use the helper:
+
+```ts
+import { request } from "../../../lib/http";
+import type { Product } from "../types/product.types";
+
+export function getProducts(): Promise<Product[]> {
+  return request<Product[]>("/api/products");
+}
+```
+
+This is a useful starting point, but it still has limitations. The generic type does not validate the JSON returned by the server, and the helper does not yet standardize error types, timeouts, or authentication.
+
+A mature API layer should be designed around the actual needs of the application. Avoid building a large abstraction before you know which behaviors genuinely need to be shared.
+
+## 9. Reusable Components Without Overengineering
+
+Component reuse is valuable, but it is easy to take it too far.
+
+Consider two buttons used in different parts of an application. If both use the same visual design and behavior, a shared button component is sensible.
+
+But imagine a product card and a user profile card. Both contain an image, a title, and some text. Should they automatically become one generic card component?
+
+Not necessarily.
+
+Their visual similarities may hide different responsibilities and different future requirements.
+
+A useful approach is to identify stable UI patterns and extract them when doing so improves consistency.
+
+For example:
+
+```tsx
+type ButtonProps = {
+  children: React.ReactNode;
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+export function Button({
+  children,
+  disabled = false,
+  onClick,
+}: ButtonProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+```
+
+A shared button like this can later support visual variants, sizes, and loading states if the application needs them.
+
+However, a production button should also consider keyboard interaction, focus indicators, styling, and accessibility requirements.
+
+**Good abstraction removes duplication and clarifies intent. Bad abstraction hides simple behavior behind unnecessary complexity.**
+
+## 10. Routing and Code Splitting
+
+A growing application often contains multiple pages, such as products, users, analytics, and settings.
+
+Loading every page's code at the beginning can increase the initial JavaScript bundle.
+
+Code splitting allows parts of the application to load when they are needed.
+
+With React Router, a route might use `React.lazy` and `Suspense`:
+
+```tsx
+import { lazy, Suspense } from "react";
+import { createBrowserRouter } from "react-router-dom";
+
+const ProductsPage = lazy(
+  () => import("../features/products/pages/ProductsPage")
+);
+
+export const router = createBrowserRouter([
+  {
+    path: "/products",
+    element: (
+      <Suspense fallback={<p>Loading page...</p>}>
+        <ProductsPage />
+      </Suspense>
+    ),
+  },
+]);
+```
+
+This is a simplified route configuration. A complete application also needs its router provider, layout routes, error boundaries, and appropriate handling for missing routes.
+
+Lazy loading can reduce the initial JavaScript required for a page, but it is not automatically beneficial for every component. Very small components may not justify a separate chunk.
+
+Use production build analysis and browser performance measurements to identify where code splitting is useful.
+
+## 11. Testing the Architecture
+
+A maintainable architecture should also be easy to test.
+
+The separation we introduced gives us several natural testing boundaries.
+
+### Unit tests
+
+Test pure functions and isolated behavior.
+
+For example, test `filterProducts` with an empty search, a matching product, a case-insensitive search, and a search that returns no results.
+
+### Component tests
+
+Render `ProductCard` and verify that the product name and price appear correctly. Test that selecting the product triggers the expected callback.
+
+### Integration tests
+
+Test the product page with its data-fetching behavior and loading, error, and success states. Mock the network boundary rather than depending on a live backend.
+
+### End-to-end tests
+
+Use a browser testing tool such as Playwright to verify an important user journey: open the products page, wait for the list, search for a product, and open its details.
+
+These tests answer different questions. A pure function test cannot prove that the complete user journey works, while an end-to-end test may be too slow to cover every filtering edge case.
+
+A balanced testing strategy combines focused unit tests, component and integration tests, and a smaller set of high-value end-to-end tests.
+
+## 12. Common Architecture Mistakes
+
+Even experienced developers can introduce unnecessary complexity when trying to design scalable systems.
+
+### Creating abstractions too early
+
+Do not build a universal form engine or a generic data-fetching framework because one page needs a form or an API request.
+
+Start with the simplest implementation that fits the requirement. Extract an abstraction when repeated behavior or a clear design need appears.
+
+### Creating a giant shared components folder
+
+A shared folder should contain genuinely shared functionality. Feature-specific components should normally remain close to the features that use them.
+
+Otherwise, the shared layer becomes a place where unrelated code accumulates.
+
+### Using global state for everything
+
+A dropdown's open state does not need to live in Redux just because the application uses Redux.
+
+Keep local state local unless there is a concrete reason to share it.
+
+### Duplicating server data in multiple places
+
+If a server-state library already manages the product query, creating another manually synchronized copy in a global store can introduce stale data and unnecessary complexity.
+
+Decide which layer owns each piece of data.
+
+### Building giant components and giant hooks
+
+Moving hundreds of lines from a component into one custom hook does not automatically improve the architecture.
+
+The hook must have a clear responsibility. Otherwise, the complexity has only moved to another file.
+
+### Ignoring loading and error states
+
+An API can fail, return an empty result, or take longer than expected. Design these states intentionally rather than assuming every request succeeds.
+
+### Optimizing without measurements
+
+Memoization, code splitting, and virtualization are useful tools, but they also introduce complexity. Measure the problem before choosing the optimization.
+
+## 13. A Practical Checklist for New Features
+
+Before implementing a new feature in a growing React application, ask these questions:
+
+- [ ] Is the feature's code organized in a clear location?
+- [ ] Are its data types explicit?
+- [ ] Is API communication separated from presentation?
+- [ ] Does each component have a clear responsibility?
+- [ ] Is state stored in the simplest appropriate place?
+- [ ] Are loading, empty, and error states handled?
+- [ ] Can the important logic be tested independently?
+- [ ] Are shared components genuinely reusable?
+- [ ] Are accessibility and responsive behavior considered?
+- [ ] Have performance decisions been based on evidence rather than assumptions?
+
+You do not need to solve every possible future problem before shipping a feature. The checklist is intended to help identify avoidable complexity and missing behavior.
+
+## Conclusion
+
+Scalable React development is not about creating the largest folder structure or using every available library.
+
+It is about making the code easier to change as requirements grow.
+
+We started with a component that handled API requests, filtering, state, and rendering. We then separated the API module, data-fetching behavior, reusable UI, filtering logic, and page composition.
+
+That structure gives each part of the application a clearer responsibility. It also creates useful boundaries for testing and future changes.
+
+The best architecture depends on the size and needs of the application. A small project may need only a few components and hooks. A larger application may benefit from feature-based modules, explicit API boundaries, shared infrastructure, and dedicated state-management tools.
+
+The guiding principle is simple:
+
+**Build the simplest architecture that supports today's requirements while making tomorrow's changes easier.**
+
+Good architecture should help developers move faster with confidence, not force them to work around layers of unnecessary abstraction.
